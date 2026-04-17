@@ -798,16 +798,20 @@ input:-webkit-autofill {
 /* Media Queries */
 @media (max-width: 1024px), (max-height: 700px) {
   .setup-screen {
-    align-items: flex-start;
     padding: 15px;
-    height: 100dvh;
+    height: 100%;
+    overflow-y: auto;
+    display: block;
   }
-  .lobby-layout { flex-direction: column; height: auto; max-height: none; overflow-y: auto; gap: 15px; }
-  .lobby-nav { flex-direction: row; width: 100%; overflow-x: auto; padding-bottom: 5px; flex-shrink: 0; }
+  .auth-screen {
+    padding: 20px;
+    height: 100%;
+    overflow-y: auto;
+    display: block;
+  }
   .game-nav-btn { white-space: nowrap; padding: 12px; }
   .shop-container .upgrade-grid { grid-template-columns: 1fr; }
   .leaderboard-panel { width: 100%; }
-  .lobby-main { padding: 20px; }
 }
 
 @media (max-width: 768px) {

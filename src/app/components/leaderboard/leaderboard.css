@@ -44,3 +44,28 @@
 .lb-wins small { color: #6b7280; font-size: 0.65rem; margin-left: 2px; }
 
 .lb-empty { text-align: center; color: #4b5563; font-family: 'Orbitron', sans-serif; font-size: 0.8rem; padding: 20px; }
+
+/* Refresh button - matches lobby refresh style */
+.btn-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 229, 255, 0.07);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 8px;
+  color: #00e5ff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.btn-refresh:hover {
+  background: rgba(0, 229, 255, 0.18);
+  border-color: #00e5ff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+  transform: rotate(45deg);
+}
