@@ -1,10 +1,12 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 export interface User {
   id?: number;
   username: string;
+  displayName?: string;
+  avatarBase64?: string;
   wins: number;
   credits: number;
   healthLevel: number;
@@ -21,6 +23,11 @@ export class AuthService {
   
   public currentUser = signal<string | null>(null);
   public currentUserStats = signal<User | null>(null);
+
+  /** Nombre visible en toda la app: el displayName si está seteado, si no el username de login */
+  public displayName = computed(() => 
+    this.currentUserStats()?.displayName || this.currentUser() || ''
+  );
 
   constructor(private http: HttpClient) {}
 
@@ -132,6 +139,23 @@ export class AuthService {
       }
     } catch (err) {
       console.warn("Could not refresh user stats", err);
+    }
+  }
+
+  async updateProfile(username: string, displayName: string, avatarBase64?: string): Promise<{success: boolean, message: string}> {
+    try {
+      const res: any = await firstValueFrom(this.http.post(`${this.apiUrl}/auth/update-profile`, { 
+        username, 
+        displayName, 
+        avatarBase64 
+      }));
+      if (res.success) {
+        this.currentUserStats.set(res);
+      }
+      return { success: res.success, message: res.message };
+    } catch (err: any) {
+      console.error('Update profile error:', err);
+      return { success: false, message: err.error?.message || 'Error al actualizar el perfil' };
     }
   }
 }

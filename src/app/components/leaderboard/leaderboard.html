@@ -17,7 +17,7 @@
           @else if (i === 2) { 🥉 }
           @else { {{ i + 1 }} }
         </span>
-        <span class="lb-name">{{ row.username }}</span>
+        <span class="lb-name">{{ row.displayName || row.username }}</span>
         <span class="lb-wins">{{ row.wins }} <small>VIC</small></span>
       </div>
     }

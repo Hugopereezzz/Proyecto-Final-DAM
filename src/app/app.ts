@@ -352,7 +352,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async createRoom(): Promise<void> {
-    const res = await this.wsService.createRoom(this.playerName().trim());
+    const avatar = this.authService.currentUserStats()?.avatarBase64;
+    const res = await this.wsService.createRoom(this.playerName().trim(), avatar);
     if (res.success && res.roomId) {
       this.currentRoomId.set(res.roomId);
       this.myCityId.set(res.cityId);
@@ -361,7 +362,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async joinRoom(): Promise<void> {
-    const res = await this.wsService.joinRoom(this.joinRoomId(), this.playerName().trim());
+    const avatar = this.authService.currentUserStats()?.avatarBase64;
+    const res = await this.wsService.joinRoom(this.joinRoomId(), this.playerName().trim(), avatar);
     if (res.success && res.roomId) {
       this.currentRoomId.set(res.roomId);
       this.myCityId.set(res.cityId);
@@ -670,17 +672,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       if (this.state.phase === 'gameover') return;
 
       if (this.isHost()) {
-         const currentTurnIdx = this.state.currentPlayerIndex;
-         let next = (currentTurnIdx + 1) % this.state.cities.length;
-         let attempts = 0;
-         while (attempts < this.state.cities.length) {
-            const city = this.state.cities[next];
-            if (city.isAlive && city.ammo > 0) break;
-            next = (next + 1) % this.state.cities.length;
-            attempts++;
-         }
-         const nextCityId = this.state.cities[next].id;
-         this.wsService.advanceTurn(this.currentRoomId(), next, nextCityId);
+        const nextData = this.getNextTurnData();
+        this.wsService.advanceTurn(this.currentRoomId(), nextData.index, nextData.cityId);
       }
     };
 
@@ -801,13 +794,27 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.animFrameId = requestAnimationFrame(() => this.gameLoop());
   }
 
+  private getNextTurnData(): { index: number, cityId: number } {
+    const currentTurnIdx = this.state.currentPlayerIndex;
+    let next = (currentTurnIdx + 1) % this.state.cities.length;
+    let attempts = 0;
+    while (attempts < this.state.cities.length) {
+      const city = this.state.cities[next];
+      if (city.isAlive && city.ammo > 0) break;
+      next = (next + 1) % this.state.cities.length;
+      attempts++;
+    }
+    return { index: next, cityId: this.state.cities[next].id };
+  }
+
   private executeBotTurn(cityId: number) {
     const act = this.gameService.simulateBotMove(this.state, cityId);
     if (act) {
       this.wsService.launchMissile(this.currentRoomId(), cityId, act.x, act.y);
     } else {
       // If act is null (no target available), just advance turn
-      this.wsService.advanceTurn(this.currentRoomId(), (this.state.currentPlayerIndex + 1) % this.state.cities.length);
+      const nextData = this.getNextTurnData();
+      this.wsService.advanceTurn(this.currentRoomId(), nextData.index, nextData.cityId);
     }
   }
 

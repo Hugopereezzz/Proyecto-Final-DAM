@@ -2,12 +2,14 @@ import { Component, inject, input, output, signal, computed, OnInit } from '@ang
 import { AuthService, User as AuthUser } from '../../auth.service';
 import { WebsocketService, RoomPlayer } from '../../websocket.service';
 import { GameService } from '../../game.service';
+import { CommonModule } from '@angular/common';
 import { LeaderboardComponent } from '../leaderboard/leaderboard';
 import { ArsenalComponent } from '../arsenal/arsenal';
+import { ProfileComponent } from '../profile/profile';
 
 @Component({
   selector: 'app-lobby',
-  imports: [LeaderboardComponent, ArsenalComponent],
+  imports: [CommonModule, LeaderboardComponent, ArsenalComponent, ProfileComponent],
   templateUrl: './lobby.html',
   styleUrl: './lobby.css'
 })
@@ -34,7 +36,7 @@ export class LobbyComponent implements OnInit {
   // Local state
   joinRoomId   = signal('');
   copyStatus   = signal('Copiar');
-  activeTab    = signal<'lobby' | 'arsenal'>('lobby');
+  activeTab    = signal<'lobby' | 'arsenal' | 'profile'>('lobby');
 
   chatMessage = signal('');
   isCreatePublic = signal(false);
@@ -47,7 +49,7 @@ export class LobbyComponent implements OnInit {
   }
 
   myContinentIndex = computed(() => {
-    const me = this.roomPlayers().find(p => p.name === this.authService.currentUser());
+    const me = this.roomPlayers().find(p => p.name === this.authService.displayName());
     return me ? me.continentIndex : -1;
   });
 
@@ -77,16 +79,18 @@ export class LobbyComponent implements OnInit {
   }
 
   async createRoom() {
-    const name = this.authService.currentUser() || 'Agente';
-    const res = await this.wsService.createRoom(name, this.isCreatePublic());
+    const name = this.authService.displayName() || 'Agente';
+    const avatar = this.authService.currentUserStats()?.avatarBase64;
+    const res = await this.wsService.createRoom(name, avatar, this.isCreatePublic());
     if (res.success && res.roomId) {
       this.roomCreated.emit({ roomId: res.roomId, cityId: res.cityId });
     }
   }
 
   async joinRoom() {
-    const name = this.authService.currentUser() || 'Agente';
-    const res = await this.wsService.joinRoom(this.joinRoomId(), name);
+    const name = this.authService.displayName() || 'Agente';
+    const avatar = this.authService.currentUserStats()?.avatarBase64;
+    const res = await this.wsService.joinRoom(this.joinRoomId(), name, avatar);
     if (res.success && res.roomId) {
       this.roomJoined.emit({ roomId: res.roomId, cityId: res.cityId });
     } else {
@@ -112,7 +116,7 @@ export class LobbyComponent implements OnInit {
   sendChatMessage() {
     const msg = this.chatMessage().trim();
     if (msg) {
-      this.wsService.sendGlobalChat(this.authService.currentUser() || 'Agente', msg);
+      this.wsService.sendGlobalChat(this.authService.displayName() || 'Agente', msg);
       this.chatMessage.set('');
     }
   }
@@ -122,8 +126,9 @@ export class LobbyComponent implements OnInit {
   }
 
   async joinPublicRoom(roomId: string) {
-    const name = this.authService.currentUser() || 'Agente';
-    const res = await this.wsService.joinRoom(roomId, name);
+    const name = this.authService.displayName() || 'Agente';
+    const avatar = this.authService.currentUserStats()?.avatarBase64;
+    const res = await this.wsService.joinRoom(roomId, name, avatar);
     if (res.success && res.roomId) {
       this.roomJoined.emit({ roomId: res.roomId, cityId: res.cityId });
     } else {

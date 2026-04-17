@@ -13,6 +13,13 @@ public class User {
     @Column(unique = true, nullable = false)
     private String username;
 
+    @Column(nullable = true)
+    private String displayName;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String avatarBase64;
+
     @Column(nullable = false)
     private String password;
 
@@ -38,6 +45,7 @@ public class User {
 
     public User(String username, String password) {
         this.username = username;
+        this.displayName = username; // Default to username
         this.password = password;
         this.wins = 0;
         this.credits = 0;
@@ -50,6 +58,13 @@ public class User {
     public Long getId() { return id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+    
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+    
+    public String getAvatarBase64() { return avatarBase64; }
+    public void setAvatarBase64(String avatarBase64) { this.avatarBase64 = avatarBase64; }
+
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
     public int getWins() { return wins; }

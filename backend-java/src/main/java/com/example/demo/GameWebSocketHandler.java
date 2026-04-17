@@ -48,6 +48,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         public int cityId;
         public int continentIndex = -1; // -1 means not chosen yet
         public boolean isBot = false;
+        public String avatarBase64;
     }
 
     static class Room {
@@ -263,6 +264,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private void handleCreateRoom(WebSocketSession session, Map<String, Object> data) throws IOException {
         String playerName = (String) data.get("playerName");
+        String avatarBase64 = (String) data.get("avatarBase64");
         
         Object isPublicRaw = data.get("isPublic");
         boolean isPublic = false;
@@ -283,6 +285,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Player host = new Player();
         host.id = session.getId();
         host.name = playerName;
+        host.avatarBase64 = avatarBase64;
         host.cityId = 0;
         room.players.add(host);
         
@@ -299,6 +302,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void handleJoinRoom(WebSocketSession session, Map<String, Object> data) throws IOException {
         String roomId = (String) data.get("roomId");
         String playerName = (String) data.get("playerName");
+        String avatarBase64 = (String) data.get("avatarBase64");
 
         if (roomId != null) roomId = roomId.toUpperCase();
 
@@ -321,6 +325,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Player p = new Player();
         p.id = session.getId();
         p.name = playerName;
+        p.avatarBase64 = avatarBase64;
         
         int maxCityId = -1;
         for (Player existing : room.players) {

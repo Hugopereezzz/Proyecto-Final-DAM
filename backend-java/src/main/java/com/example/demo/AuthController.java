@@ -23,6 +23,8 @@ public class AuthController {
         public boolean success;
         public String message;
         public String username;
+        public String displayName;
+        public String avatarBase64;
         public int credits;
         public int healthLevel;
         public int ammoLevel;
@@ -34,6 +36,8 @@ public class AuthController {
             this.message = message;
             if (user != null) {
                 this.username = user.getUsername();
+                this.displayName = user.getDisplayName() != null ? user.getDisplayName() : user.getUsername();
+                this.avatarBase64 = user.getAvatarBase64();
                 this.credits = user.getCredits();
                 this.healthLevel = user.getHealthLevel();
                 this.ammoLevel = user.getAmmoLevel();
@@ -77,5 +81,33 @@ public class AuthController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(new AuthResponse(user.get(), true, "Stats actualizadas"));
+    }
+
+    public static class UpdateProfileRequest {
+        public String username;
+        public String displayName;
+        public String avatarBase64;
+    }
+
+    @PostMapping("/update-profile")
+    public ResponseEntity<AuthResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
+        if (request.username == null || request.username.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(new AuthResponse(null, false, "Usuario inválido"));
+        }
+        Optional<User> userOpt = userRepository.findByUsername(request.username);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(new AuthResponse(null, false, "Usuario no encontrado"));
+        }
+
+        User user = userOpt.get();
+        if (request.displayName != null && !request.displayName.trim().isEmpty()) {
+            user.setDisplayName(request.displayName.trim());
+        }
+        if (request.avatarBase64 != null) {
+            user.setAvatarBase64(request.avatarBase64);
+        }
+
+        userRepository.save(user);
+        return ResponseEntity.ok(new AuthResponse(user, true, "Perfil actualizado con éxito"));
     }
 }

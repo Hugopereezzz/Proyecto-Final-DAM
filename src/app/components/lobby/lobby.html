@@ -22,19 +22,23 @@
 
       <div class="nav-spacer"></div>
 
-      <div class="user-card glass-subpanel">
+      <!-- Botón de perfil justo encima de desconectar -->
+      <button class="user-card-btn" [class.active]="activeTab() === 'profile'" (click)="activeTab.set('profile')">
         <div class="nav-avatar">
-          <span class="avatar-letter">{{ (authService.currentUser() || 'A')[0].toUpperCase() }}</span>
-          <div class="avatar-ring"></div>
+          @if (authService.currentUserStats()?.avatarBase64) {
+          <img [src]="authService.currentUserStats()!.avatarBase64" class="nav-avatar-img" />
+          } @else {
+          <span class="avatar-letter">{{ authService.displayName()[0]?.toUpperCase() || 'A' }}</span>
+          }
         </div>
         <div class="user-details">
-          <span class="nav-username">{{ authService.currentUser() }}</span>
-          <span class="nav-role">Operador</span>
+          <span class="nav-username">{{ authService.displayName() }}</span>
+          <span class="nav-role">OPERADOR</span>
         </div>
-      </div>
+        <div class="nav-indicator">>></div>
+      </button>
 
       <button class="nav-btn danger" (click)="logout()">
-        <span class="nav-icon">🛑</span>
         <span class="nav-text">DESCONECTAR</span>
       </button>
     </nav>
@@ -50,7 +54,7 @@
       <div class="section-header animated-enter">
         <h1 class="section-title">CENTRO DE MANDO</h1>
         <p class="section-sub">Sistema en línea. Esperando órdenes, agente <strong class="neon-text">{{
-            authService.currentUser() }}</strong>.</p>
+            authService.displayName() }}</strong>.</p>
       </div>
 
       <div class="command-center-layout animated-enter-delay">
@@ -144,7 +148,7 @@
               }
               @for (msg of globalChat(); track msg.timestamp) {
               <div class="chat-msg">
-                <span class="chat-author" [class.me]="msg.playerName === authService.currentUser()">
+                <span class="chat-author" [class.me]="msg.playerName === authService.displayName()">
                   [{{ msg.playerName }}]:
                 </span>
                 <span class="chat-text">{{ msg.text }}</span>
@@ -190,12 +194,18 @@
           </div>
           <div class="players-grid">
             @for (player of roomPlayers(); track player.id) {
-            <div class="player-card glass-subpanel" [class.me]="player.name === authService.currentUser()">
+            <div class="player-card glass-subpanel" [class.me]="player.name === authService.displayName()">
               <div class="player-avatar-wrapper">
+                @if (player.avatarBase64) {
+                <div class="player-avatar player-avatar-img-wrap">
+                  <img [src]="player.avatarBase64" class="player-avatar-img" />
+                </div>
+                } @else {
                 <div class="player-avatar"
                   [style.background]="player.continentIndex >= 0 ? gameService.countryLocations[player.continentIndex].color : '#1f2937'">
                   {{ player.name[0].toUpperCase() }}
                 </div>
+                }
                 @if (player.continentIndex >= 0) {
                 <div class="avatar-pulse"
                   [style.border-color]="gameService.countryLocations[player.continentIndex].color"></div>
@@ -212,7 +222,7 @@
                   }
                 </span>
               </div>
-              @if (player.name === authService.currentUser()) {
+              @if (player.name === authService.displayName()) {
               <span class="badge-you">LOCAL</span>
               }
             </div>
@@ -286,11 +296,13 @@
         </div>
       </div>
       }
-
-      } @else {
-      <!-- Arsenal tab -->
+      } @else if (activeTab() === 'arsenal') {
       <div class="animated-enter">
         <app-arsenal />
+      </div>
+      } @else if (activeTab() === 'profile') {
+      <div class="animated-enter">
+        <app-profile (back)="activeTab.set('lobby')" (logout)="logout()" />
       </div>
       }
 

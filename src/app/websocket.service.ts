@@ -7,6 +7,7 @@ export interface RoomPlayer {
   cityId: number;
   continentIndex: number;
   isBot?: boolean;
+  avatarBase64?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -36,6 +37,10 @@ export class WebsocketService {
 
   connect() {
     this.socket = new WebSocket('ws://localhost:8080/game');
+
+    this.socket.onclose = () => {
+      setTimeout(() => this.connect(), 2000); // Auto reconnect if backend restarts
+    };
 
     this.socket.onmessage = (event) => {
       const payload = JSON.parse(event.data);
@@ -100,17 +105,17 @@ export class WebsocketService {
     this.send('global-chat', { playerName, text });
   }
 
-  createRoom(playerName: string, isPublic: boolean = false): Promise<any> {
+  createRoom(playerName: string, avatarBase64: string | undefined, isPublic: boolean = false): Promise<any> {
     return new Promise((resolve) => {
       this.createRoomResolve = resolve;
-      this.send('create-room', { playerName, isPublic });
+      this.send('create-room', { playerName, avatarBase64, isPublic });
     });
   }
 
-  joinRoom(roomId: string, playerName: string): Promise<any> {
+  joinRoom(roomId: string, playerName: string, avatarBase64: string | undefined): Promise<any> {
     return new Promise((resolve) => {
       this.joinRoomResolve = resolve;
-      this.send('join-room', { roomId, playerName });
+      this.send('join-room', { roomId, playerName, avatarBase64 });
     });
   }
 

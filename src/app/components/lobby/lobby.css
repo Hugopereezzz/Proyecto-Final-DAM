@@ -16,22 +16,16 @@
     linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
   background-size: 60px 60px;
-  transform: perspective(1000px) rotateX(60deg) translateY(0) translateZ(-200px);
-  animation: gridPan 20s linear infinite;
+  transform: perspective(1000px) rotateX(60deg) translate3d(0, 0, -200px);
+  /* animation: gridPan 20s linear infinite; REMOVED FOR PERFORMANCE */
   pointer-events: none;
-}
-
-@keyframes gridPan {
-  from { transform: perspective(1000px) rotateX(60deg) translateY(0) translateZ(-200px); }
-  to { transform: perspective(1000px) rotateX(60deg) translateY(120px) translateZ(-200px); }
 }
 
 .ambient-glow {
   position: absolute; width: 80vw; height: 80vh;
   top: 50%; left: 50%; transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(0, 229, 255, 0.05) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.03) 0%, transparent 60%);
   pointer-events: none; z-index: 0;
-  mix-blend-mode: screen;
 }
 
 .lobby-layout {
@@ -45,20 +39,19 @@
 
 /* ===== Reusable Cyber/Glass Components ===== */
 .glass-panel {
-  background: rgba(8, 12, 28, 0.65);
-  backdrop-filter: blur(24px) saturate(150%);
+  background: rgba(8, 12, 28, 0.85); /* Slightly more opaque so blur is less needed */
+  backdrop-filter: blur(4px); /* Greatly reduced blur for performance */
   border: 1px solid rgba(0, 229, 255, 0.15);
   border-radius: 16px;
   position: relative;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3); /* Lighter shadow */
 }
 
 .glass-subpanel {
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.5);
+  /* backdrop-filter: blur(6px); REMOVED FOR PERFORMANCE - Nesting blurs causes lag spikes */
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
 
 .panel-glow-top {
@@ -67,7 +60,7 @@
   opacity: 0.5; box-shadow: 0 0 15px var(--primary);
 }
 
-/* Glitch Text */
+/* Glitch Text - Simplified for performance */
 .glitch { position: relative; color: #fff; font-weight: 900; }
 .glitch::before, .glitch::after {
   content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -76,21 +69,12 @@
 .glitch::before {
   left: 2px; text-shadow: -1px 0 #ff0055;
   clip-path: polygon(0 10%, 100% 10%, 100% 20%, 0 20%);
-  animation: glitchAnim 3s infinite linear alternate-reverse;
+  /* Animation removed to prevent CPU rendering loops */
 }
 .glitch::after {
   left: -2px; text-shadow: -1px 0 var(--primary);
   clip-path: polygon(0 80%, 100% 80%, 100% 90%, 0 90%);
-  animation: glitchAnim 2s infinite linear alternate-reverse;
-}
-
-@keyframes glitchAnim {
-  0% { clip-path: polygon(0 15%, 100% 15%, 100% 25%, 0 25%); }
-  20% { clip-path: polygon(0 60%, 100% 60%, 100% 70%, 0 70%); }
-  40% { clip-path: polygon(0 40%, 100% 40%, 100% 50%, 0 50%); }
-  60% { clip-path: polygon(0 80%, 100% 80%, 100% 90%, 0 90%); }
-  80% { clip-path: polygon(0 5%, 100% 5%, 100% 15%, 0 15%); }
-  100% { clip-path: polygon(0 30%, 100% 30%, 100% 40%, 0 40%); }
+  /* Animation removed to prevent CPU rendering loops */
 }
 
 .neon-text {
@@ -114,18 +98,23 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Sidebar Nav Styles - Aggressive Override */
+/* Sidebar Nav Styles */
 .lobby-nav {
-  width: 250px !important;
+  width: 220px !important;
   flex-shrink: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 12px !important;
-  padding: 30px 20px !important;
-  background: rgba(8, 12, 28, 0.8) !important;
-  backdrop-filter: blur(40px) saturate(200%) !important;
+  gap: 4px !important;
+  padding: 24px 16px !important;
+  background: rgba(8, 12, 28, 0.95) !important;
+  /* backdrop-filter: blur(12px) !important; REMOVED FOR PERFORMANCE! */
   border-right: 1px solid rgba(0, 229, 255, 0.2) !important;
-  box-shadow: 20px 0 50px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important;
+}
+
+.nav-spacer {
+  flex: 1;
 }
 
 button.nav-btn {
@@ -133,31 +122,31 @@ button.nav-btn {
   -webkit-appearance: none !important;
   background: rgba(255, 255, 255, 0.05) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  margin: 0 0 10px 0 !important;
-  padding: 16px 20px !important;
-  border-radius: 12px !important;
+  margin: 0 0 4px 0 !important;
+  padding: 14px 16px !important;
+  border-radius: 8px !important;
   display: flex !important;
   align-items: center !important;
-  gap: 16px !important;
+  gap: 12px !important;
   color: #f8fafc !important;
   font-family: 'Orbitron', sans-serif !important;
-  font-size: 0.85rem !important;
+  font-size: 0.8rem !important;
   font-weight: 800 !important;
   letter-spacing: 2px !important;
   cursor: pointer !important;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition: all 0.2s ease-out !important;
   text-align: left !important;
   width: 100% !important;
-  position: relative !important;
-  overflow: hidden !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
 }
 
 button.nav-btn:hover {
   background: rgba(0, 229, 255, 0.15) !important;
   border-color: rgba(0, 229, 255, 0.4) !important;
   color: #fff !important;
-  transform: translateX(8px) !important;
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.2) !important;
+  transform: translateX(4px) !important;
 }
 
 button.nav-btn.active {
@@ -165,19 +154,21 @@ button.nav-btn.active {
   border-left: 4px solid #00e5ff !important;
   border-color: rgba(0, 229, 255, 0.5) !important;
   color: #00e5ff !important;
-  box-shadow: -10px 0 30px -5px rgba(0, 229, 255, 0.4) !important;
 }
 
 button.nav-btn .nav-icon {
-  font-size: 1.4rem !important;
-  filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)) !important;
+  font-size: 1.2rem !important;
+  flex-shrink: 0 !important;
 }
 
 button.nav-btn.danger {
-  margin-top: auto !important;
+  margin-top: 4px !important;
   background: rgba(239, 68, 68, 0.05) !important;
   border-color: rgba(239, 68, 68, 0.2) !important;
   color: #fca5a5 !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  min-width: 0 !important;
 }
 
 button.nav-btn.danger:hover {
@@ -225,8 +216,7 @@ button.nav-btn.danger:hover {
 
 .btn-content { display: flex; align-items: center; gap: 20px; position: relative; z-index: 2; }
 .btn-icon { font-size: 2rem; }
-.pulse-glow { animation: textPulse 2s infinite alternate; }
-@keyframes textPulse { from { text-shadow: 0 0 10px var(--primary); } to { text-shadow: 0 0 25px var(--primary), 0 0 10px #fff; } }
+/* .pulse-glow { animation: textPulse 2s infinite alternate; } Removed for performance */
 
 .btn-label { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 800; letter-spacing: 2px; }
 .btn-hint { font-size: 0.8rem; color: #9ca3af; margin-top: 4px; font-family: 'Inter', sans-serif; }
@@ -253,13 +243,10 @@ button.nav-btn.danger:hover {
 .cyber-input:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(0,229,255,0.1); }
 .input-scanner {
   position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
-  background: var(--primary); box-shadow: 0 0 10px var(--primary);
+  background: var(--primary);
   opacity: 0; transition: opacity 0.3s;
 }
-.cyber-input:focus ~ .input-scanner {
-  opacity: 1; animation: scanLine 2s linear infinite;
-}
-@keyframes scanLine { 0% { left: 0; } 50% { left: 100%; } 100% { left: 0; } }
+/* Removed scanner animation to save CPU */
 
 .premium-btn.outline {
   padding: 16px 30px; background: transparent; display: flex; align-items: center; justify-content: center;
@@ -283,6 +270,96 @@ button.nav-btn.danger:hover {
 .players-section { display: flex; flex-direction: column; overflow-y: auto; padding-right: 10px;}
 .players-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;}
 
+.user-card-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  margin: 4px 0;
+  text-align: left;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease-out;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.user-card-btn:hover {
+  background: rgba(0, 229, 255, 0.05);
+  border-color: rgba(0, 229, 255, 0.5);
+}
+
+.user-card-btn.active {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--neon-cyan);
+  border-left: 4px solid var(--neon-cyan);
+}
+
+.nav-avatar {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 229, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.nav-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.avatar-letter {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--neon-cyan);
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.nav-username {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-role {
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  color: #9ca3af;
+}
+
+.nav-indicator {
+  font-size: 0.75rem;
+  color: var(--neon-cyan);
+  opacity: 0;
+  transition: all 0.2s ease-out;
+  flex-shrink: 0;
+}
+
+.user-card-btn:hover .nav-indicator,
+.user-card-btn.active .nav-indicator {
+  opacity: 1;
+}
+
 .player-card {
   display: flex; align-items: center; gap: 16px; padding: 16px; transition: all 0.3s;
   border-left: 3px solid transparent;
@@ -293,10 +370,16 @@ button.nav-btn.danger:hover {
 .player-avatar {
   width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
   font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.2rem; color: #fff;
-  border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
-.avatar-pulse { position: absolute; inset: -4px; border: 1px solid currentColor; border-radius: 10px; animation: pulseBorder 2s infinite; opacity: 0.5;}
-@keyframes pulseBorder { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.2); opacity: 0; } }
+.player-avatar-img-wrap {
+  overflow: hidden; padding: 0; background: transparent;
+}
+.player-avatar-img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.avatar-pulse { position: absolute; inset: -3px; border: 1px solid currentColor; border-radius: 8px; opacity: 0.2; }
+/* @keyframes pulseBorder Removed for performance */
 
 .player-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .player-name { font-weight: 700; font-size: 1.05rem; }
@@ -305,8 +388,8 @@ button.nav-btn.danger:hover {
 .badge-you { font-family: 'Orbitron', sans-serif; font-size: 0.65rem; background: var(--primary); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
 
 .start-section { margin-top: auto; padding-top: 20px;}
-.btn-start.glowing { width: 100%; text-align: center; justify-content: center; display: flex; font-size: 1rem; padding: 24px; animation: buttonGlow 2s infinite alternate;}
-@keyframes buttonGlow { from { box-shadow: 0 0 15px rgba(0,229,255,0.2); } to { box-shadow: 0 0 35px rgba(0,229,255,0.5); border-color: #fff; } }
+.btn-start.glowing { width: 100%; text-align: center; justify-content: center; display: flex; font-size: 1rem; padding: 24px; box-shadow: 0 0 15px rgba(0,229,255,0.3);}
+/* @keyframes buttonGlow Removed for perf */
 
 .start-hint { font-family: 'Orbitron'; font-size: 0.7rem; text-align: center; margin-top: 12px; color: #ef4444; }
 .waiting-box { padding: 20px; text-align: center; font-family: 'Orbitron'; color: var(--gold); border: 1px dashed rgba(255,202,40,0.3); display: flex; align-items: center; justify-content: center; gap: 10px; animation: pulseWarning 2s infinite; border-radius: 8px;}
@@ -334,15 +417,15 @@ button.nav-btn.danger:hover {
 .map-container { position: relative; z-index: 1; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); transition: transform 0.4s; }
 .continent-map { width: 120px; height: 120px; color: #fff;}
 
-.continent-name { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 800; letter-spacing: 2px; z-index: 1; color: #e5e7eb; transition: color 0.3s;}
+.continent-name { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 800; letter-spacing: 2px; z-index: 1; color: #e5e7eb;}
 
 .continent-card:hover:not(.taken) {
-  transform: translateY(-5px); border-color: var(--loc-accent); box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+  transform: translateY(-2px); border-color: var(--loc-accent); box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 .continent-card:hover:not(.taken)::before { opacity: 1; }
 .continent-card:hover:not(.taken) .corner { border-color: var(--loc-accent); }
-.continent-card:hover:not(.taken) .continent-map { transform: scale(1.1); color: var(--loc-accent); filter: drop-shadow(0 0 15px var(--loc-accent));}
-.continent-card:hover:not(.taken) .continent-name { color: #fff; text-shadow: 0 0 10px var(--loc-color);}
+.continent-card:hover:not(.taken) .continent-map { color: var(--loc-accent); } /* removed scale to avoid sub-pixel lag */
+.continent-card:hover:not(.taken) .continent-name { color: #fff; text-shadow: none;}
 
 .continent-card.selected {
   border-color: var(--loc-color); background: rgba(0,229,255,0.05);
