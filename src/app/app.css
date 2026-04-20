@@ -90,13 +90,46 @@ body {
   pointer-events: auto;
 }
 
-/* Abandon button - fixed top-left, always on top, always clickable */
-.abandon-btn-fixed {
-  position: fixed;
-  top: 14px;
-  left: 180px;
   z-index: 100;
   pointer-events: auto;
+}
+
+/* ===== Emoji Reactions Bar ===== */
+.emoji-pings-bar {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(10, 15, 30, 0.6);
+  padding: 15px 10px;
+  border-radius: 30px;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  z-index: 100;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(0, 229, 255, 0.1);
+}
+
+.emoji-pings-bar button {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  transition: transform 0.2s, filter 0.2s;
+  filter: grayscale(0.4);
+}
+
+.emoji-pings-bar button:hover {
+  transform: scale(1.3);
+  filter: grayscale(0);
+}
+
+.emoji-pings-bar button:active {
+  transform: scale(0.9);
 }
 
 /* ===== Typography ===== */
@@ -708,6 +741,13 @@ input:-webkit-autofill {
   display: flex; flex-direction: column; gap: 10px;
   box-shadow: 0 10px 20px rgba(0,0,0,0.5);
   position: relative; overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.city-health:hover {
+  transform: scale(1.05);
+  background: rgba(15, 25, 45, 0.9);
+  border-color: rgba(255,255,255,0.3);
 }
 
 .city-health::before {
@@ -935,3 +975,65 @@ input:-webkit-autofill {
 @keyframes fadeOutWarning {
   to { opacity: 0; visibility: hidden; }
 }
+
+/* ===== WORLD EVENT TOAST ===== */
+.world-event-toast {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(5, 10, 20, 0.95);
+  border: 1px solid var(--gold);
+  border-radius: 16px;
+  padding: 16px 24px;
+  z-index: 3000;
+  box-shadow: 0 0 40px rgba(255, 202, 40, 0.4), 0 4px 30px rgba(0,0,0,0.8);
+  backdrop-filter: blur(20px);
+  animation: toastSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), toastFadeOut 0.5s ease 4.5s forwards;
+  min-width: 420px;
+}
+.event-icon { font-size: 2.5rem; flex-shrink: 0; filter: drop-shadow(0 0 10px var(--gold)); animation: iconPulse 1s ease infinite alternate; }
+.event-title { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700; color: var(--gold); letter-spacing: 1px; margin-bottom: 4px; }
+.event-desc { font-size: 0.8rem; color: #d1d5db; line-height: 1.4; }
+@keyframes toastSlideIn { from { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(0.9); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+@keyframes toastFadeOut { to { opacity: 0; transform: translateX(-50%) translateY(-20px); } }
+@keyframes iconPulse { from { transform: scale(1); } to { transform: scale(1.15); } }
+
+/* ===== REVENGE MISSILE BUTTON ===== */
+.revenge-container { position: fixed; bottom: 120px; right: 30px; z-index: 3000; display: flex; align-items: center; justify-content: center; }
+.revenge-pulse-ring { position: absolute; width: 200px; height: 60px; border-radius: 30px; border: 2px solid var(--secondary); animation: revengePulse 1s ease-out infinite; pointer-events: none; }
+@keyframes revengePulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.4); opacity: 0; } }
+.revenge-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: linear-gradient(135deg, rgba(255,0,85,0.9), rgba(180,0,60,0.9));
+  border: 2px solid var(--secondary); border-radius: 14px; padding: 12px 20px;
+  cursor: pointer; color: #fff; font-family: 'Orbitron', sans-serif;
+  box-shadow: 0 0 30px rgba(255, 0, 85, 0.6);
+  animation: revengeShake 0.3s ease infinite alternate;
+}
+.revenge-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(255, 0, 85, 0.9); }
+.revenge-icon { font-size: 1.6rem; }
+.revenge-text { font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; white-space: nowrap; }
+.revenge-sub { font-size: 0.6rem; opacity: 0.8; font-family: 'Inter', sans-serif; }
+@keyframes revengeShake { from { transform: rotate(-1deg); } to { transform: rotate(1deg); } }
+
+/* ===== SOUND TOGGLE ===== */
+.sound-toggle-btn {
+  position: fixed; bottom: 20px; right: 20px; z-index: 2500;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(10, 15, 30, 0.8); border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px); font-size: 1.3rem; cursor: pointer;
+  transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+}
+.sound-toggle-btn:hover { border-color: var(--primary); box-shadow: 0 0 15px rgba(0,229,255,0.4); transform: scale(1.1); }
+
+/* ===== RANK BADGE ===== */
+.rank-badge {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px;
+  border-radius: 20px; font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 1px;
+  border: 1px solid currentColor; box-shadow: 0 0 12px currentColor; margin: 8px 0;
+}

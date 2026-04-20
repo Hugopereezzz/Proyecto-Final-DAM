@@ -37,7 +37,8 @@ public class LeaderboardController {
         if (user.isPresent()) {
             User u = user.get();
             u.setWins(u.getWins() + 1);
-            u.setCredits(u.getCredits() + 100); // 100 Credits for a win
+            u.setCredits(u.getCredits() + 100);
+            u.setXp(u.getXp() + 250); 
             userRepository.save(u);
             return ResponseEntity.ok(u);
         }
@@ -51,7 +52,8 @@ public class LeaderboardController {
         Optional<User> user = userRepository.findByUsername(request.username);
         if (user.isPresent()) {
             User u = user.get();
-            u.setCredits(u.getCredits() + request.buildingsDestroyed); // 1 Credit per building
+            u.setCredits(u.getCredits() + request.buildingsDestroyed);
+            u.setXp(u.getXp() + (request.buildingsDestroyed * 10)); 
             userRepository.save(u);
             return ResponseEntity.ok(u);
         }

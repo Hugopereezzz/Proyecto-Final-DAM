@@ -6,10 +6,11 @@ import { CommonModule } from '@angular/common';
 import { LeaderboardComponent } from '../leaderboard/leaderboard';
 import { ArsenalComponent } from '../arsenal/arsenal';
 import { ProfileComponent } from '../profile/profile';
+import { StatsDashboardComponent } from '../stats-dashboard/stats-dashboard';
 
 @Component({
   selector: 'app-lobby',
-  imports: [CommonModule, LeaderboardComponent, ArsenalComponent, ProfileComponent],
+  imports: [CommonModule, LeaderboardComponent, ArsenalComponent, ProfileComponent, StatsDashboardComponent],
   templateUrl: './lobby.html',
   styleUrl: './lobby.css'
 })
@@ -32,11 +33,12 @@ export class LobbyComponent implements OnInit {
   leftRoom    = output<void>();
   loggedOut   = output<void>();
   refreshLeaderboard = output<void>();
+  toggleStats = output<void>();
 
   // Local state
   joinRoomId   = signal('');
   copyStatus   = signal('Copiar');
-  activeTab    = signal<'lobby' | 'arsenal' | 'profile'>('lobby');
+  activeTab    = signal<'lobby' | 'arsenal' | 'profile' | 'stats'>('lobby');
 
   chatMessage = signal('');
   isCreatePublic = signal(false);

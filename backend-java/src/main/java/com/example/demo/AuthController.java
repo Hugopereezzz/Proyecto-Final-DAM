@@ -30,6 +30,9 @@ public class AuthController {
         public int ammoLevel;
         public int speedLevel;
         public int alliedSupportCount;
+        public int wins;
+        public String missileSkin;
+        public int xp;
         
         public AuthResponse(User user, boolean success, String message) {
             this.success = success;
@@ -43,6 +46,9 @@ public class AuthController {
                 this.ammoLevel = user.getAmmoLevel();
                 this.speedLevel = user.getSpeedLevel();
                 this.alliedSupportCount = user.getAlliedSupportCount();
+                this.wins = user.getWins();
+                this.missileSkin = user.getMissileSkin();
+                this.xp = user.getXp();
             }
         }
     }
@@ -87,6 +93,7 @@ public class AuthController {
         public String username;
         public String displayName;
         public String avatarBase64;
+        public String missileSkin;
     }
 
     @PostMapping("/update-profile")
@@ -105,6 +112,9 @@ public class AuthController {
         }
         if (request.avatarBase64 != null) {
             user.setAvatarBase64(request.avatarBase64);
+        }
+        if (request.missileSkin != null) {
+            user.setMissileSkin(request.missileSkin);
         }
 
         userRepository.save(user);

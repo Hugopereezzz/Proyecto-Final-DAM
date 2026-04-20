@@ -42,6 +42,46 @@
       (callAllies)="callAlliedSupport()"
       (leaveGame)="leaveGame()"
     />
+
+    <!-- Sound Toggle -->
+    <button class="sound-toggle-btn" id="btn-sound-toggle" (click)="toggleSound()" [title]="soundEnabled() ? 'Silenciar' : 'Activar sonido'">
+      {{ soundEnabled() ? '🔊' : '🔇' }}
+    </button>
+
+    <!-- World Event Toast -->
+    @if (worldEventToast()) {
+      <div class="world-event-toast" id="world-event-toast">
+        <div class="event-icon">{{ worldEventToast()!.icon }}</div>
+        <div class="event-body">
+          <div class="event-title">{{ worldEventToast()!.title }}</div>
+          <div class="event-desc">{{ worldEventToast()!.description }}</div>
+        </div>
+      </div>
+    }
+
+    <!-- Revenge Missile Button -->
+    @if (revengeReadyCityId() !== null && isMyTurn()) {
+      <div class="revenge-container" id="revenge-container">
+        <div class="revenge-pulse-ring"></div>
+        <button class="revenge-btn" id="btn-revenge" (click)="callRevengeMissile()">
+          <span class="revenge-icon">💥</span>
+          <span class="revenge-text">¡GOLPE DE VENGANZA!</span>
+          <span class="revenge-sub">Super-Misil Gratuito</span>
+        </button>
+      </div>
+    }
+
+    <!-- Emoji Reactions Bar -->
+    <div class="emoji-pings-bar" id="emoji-pings-bar">
+      <button (click)="sendEmoji('⚔️')" title="Ataque">⚔️</button>
+      <button (click)="sendEmoji('🛡️')" title="Defensa">🛡️</button>
+      <button (click)="sendEmoji('🎯')" title="Objetivo">🎯</button>
+      <button (click)="sendEmoji('🔥')" title="Fuego">🔥</button>
+      <button (click)="sendEmoji('💀')" title="Peligro">💀</button>
+      <button (click)="sendEmoji('😂')" title="Risa">😂</button>
+      <button (click)="sendEmoji('😎')" title="Genial">😎</button>
+      <button (click)="sendEmoji('🚩')" title="Rendición?">🚩</button>
+    </div>
   }
 
   <!-- 5. ROULETTE MODAL -->

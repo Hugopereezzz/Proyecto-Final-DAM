@@ -1,15 +1,40 @@
 import { Injectable } from '@angular/core';
 import {
   Building, City, Missile, Explosion, Particle, Star,
-  GameState, GamePhase
+  GameState, GamePhase, WorldEvent, WorldEventType,
+  Weather, WeatherType, EmojiPing
 } from './models/game.models';
 import { User } from './auth.service';
+
 
 @Injectable({ providedIn: 'root' })
 export class GameService {
   private nextMissileId = 0;
   private canvasWidth = 0;
   private canvasHeight = 0;
+
+  // Continent passive bonuses definitions
+  readonly continentPassives = [
+    { name: 'NORAD', icon: '🛡️', desc: '+20% éxito de intercepción', colorHex: '#00e5ff' },
+    { name: 'Escudo de Hierro', icon: '⚔️', desc: '+25% salud inicial', colorHex: '#ff4081' },
+    { name: 'Selva Densa', icon: '🌲', desc: 'Misiles viajan en modo sigilo automático', colorHex: '#76ff03' },
+    { name: 'Recursos Estratégicos', icon: '💰', desc: '+50% créditos por edificio destruido', colorHex: '#ffab40' },
+  ];
+
+  // World event pool
+  private readonly worldEvents: WorldEvent[] = [
+    { type: 'solar-storm',    title: '☀️ TORMENTA SOLAR',         description: 'Radar offline — las barras de vida enemigas son invisibles durante 2 turnos.', icon: '☀️', turnsActive: 2 },
+    { type: 'arms-treaty',    title: '🕊️ TRATADO DE NO PROLIFERACIÓN', description: 'Misiles nucleares bloqueados esta ronda.', icon: '🕊️', turnsActive: 1 },
+    { type: 'spy-satellite',  title: '🛰️ SATÉLITE ESPÍA',          description: 'La trayectoria del próximo misil enemigo es visible para todos.', icon: '🛰️', turnsActive: 1 },
+    { type: 'resource-crisis',title: '⚡ CRISIS DE RECURSOS',      description: 'Todos los jugadores pierden 5 de munición. ¡Actúa rápido!', icon: '⚡', turnsActive: 1 },
+  ];
+
+  private readonly weatherPool: Weather[] = [
+    { type: 'clear', title: '☀️ DESPEJADO', description: 'Condiciones óptimas.', icon: '☀️', windX: 0, windY: 0 },
+    { type: 'windy', title: '🍃 VIENTO FUERTE', description: 'Vientos laterales afectan la trayectoria.', icon: '🍃', windX: 0.15, windY: 0 },
+    { type: 'storm', title: '⛈️ TORMENTA', description: 'Turbulencia severa.', icon: '⛈️', windX: 0, windY: 0.1 },
+    { type: 'fog',   title: '🌫️ NIEBLA', description: 'Visibilidad reducida.', icon: '🌫️', windX: 0, windY: 0 },
+  ];
 
   readonly countryLocations = [
     { name: 'Norteamérica', x: 260, y: 190, color: '#00e5ff', accent: '#00b8d4' },
@@ -36,7 +61,12 @@ export class GameService {
       currentPlayerIndex: 0,
       phase: 'aiming',
       winner: null,
-      turnNumber: 1
+      turnNumber: 1,
+      globalEvent: null,
+      weather: { ...this.weatherPool[0] },
+      screenShake: 0,
+      activeEmojis: [],
+      revengeUsed: {}
     };
   }
 
@@ -57,25 +87,35 @@ export class GameService {
       let baseHealth = buildings.reduce((sum, b) => sum + (b.healthValue || 0), 0);
       let baseAmmo = 50;
 
+      // Apply upgrade bonuses for the local player
       if (isMe && currentUserStats) {
         baseHealth *= (1 + (currentUserStats.healthLevel * 0.1));
         baseAmmo += (currentUserStats.ammoLevel * 5);
       }
+
+      // ─── Continent Passive Bonuses ─────────────────────────────────────
+      // Eurasia: +25% health
+      if (continentIdx === 1) baseHealth *= 1.25;
+      // Sudamérica: ammo bonus (gets auto-stealth handled in launchMissile)
+      // Africa: credits bonus handled in applyDamage
 
       cities.push({
         id: (p.cityId !== undefined && p.cityId !== null) ? p.cityId : i,
         name: loc.name,
         x: loc.x,
         y: loc.y,
-        health: baseHealth,
-        maxHealth: baseHealth,
+        health: Math.round(baseHealth),
+        maxHealth: Math.round(baseHealth),
         color: loc.color,
         accentColor: loc.accent,
         buildings,
         isAlive: true,
         ammo: baseAmmo,
+        continentIndex: continentIdx,
         statusEffects: [],
-        activeSkills: []
+        activeSkills: [],
+        missileSkin: p.missileSkin || 'default',
+        xp: p.xp || 0
       });
     }
     return cities;
@@ -137,10 +177,15 @@ export class GameService {
     const city = state.cities.find(c => c.id === fromCityId);
     if (!city || city.ammo <= 0) return null;
     
+    // Block nuclear under arms treaty
+    if (state.globalEvent?.type === 'arms-treaty' && city.activeSkills.includes('double-damage')) {
+      return null;
+    }
+
     city.ammo -= 1;
     
-    const hasHyper = city.activeSkills.includes('hyper-speed');
-    const hasStealth = city.activeSkills.includes('stealth');
+    const hasHyper   = city.activeSkills.includes('hyper-speed');
+    const hasStealth = city.activeSkills.includes('stealth') || city.continentIndex === 2; // Sudamérica passive
     const hasNuclear = city.activeSkills.includes('double-damage');
 
     let baseSpeed = 0.0083; 
@@ -165,7 +210,8 @@ export class GameService {
       active: true,
       hitSuccess: true,
       isStealth: hasStealth,
-      isNuclear: hasNuclear
+      isNuclear: hasNuclear,
+      skin: city.missileSkin || 'default'
     };
 
     state.missiles.push(missile);
@@ -253,19 +299,29 @@ export class GameService {
 
     for (const city of state.cities) {
       if (city.isAlive && city.activeSkills.includes('auto-defense') && !city.activeSkills.includes('no-defense')) {
+        // Norteamérica passive: +20% intercept chance
+        const interceptBonus = city.continentIndex === 0 ? 0.2 : 0;
         const incoming = state.missiles.find(m => 
           m.active && !m.isDefensive && !m.isStealth &&
           Math.hypot(m.currentX - city.x, m.currentY - city.y) < 300 &&
           !state.missiles.some(dm => dm.isDefensive && dm.targetMissileId === m.id)
         );
         if (incoming) {
-          this.launchDefensiveMissile(state, city.id, incoming.id, true, 0);
+          // Use intercept bonus for auto-defense from Norteamérica
+          const hitChance = Math.random() + interceptBonus;
+          this.launchDefensiveMissile(state, city.id, incoming.id, hitChance > 0.5, 0);
         }
       }
     }
 
     for (const missile of state.missiles) {
       if (!missile.active) continue;
+
+      // Apply weather effects (wind)
+      if (!missile.isDefensive) {
+        missile.targetX += state.weather.windX * dtFactor;
+        missile.targetY += state.weather.windY * dtFactor;
+      }
 
       missile.trail.forEach(t => t.alpha *= 0.95);
       missile.trail = missile.trail.filter(t => t.alpha > 0.1);
@@ -319,6 +375,16 @@ export class GameService {
     state.missiles = state.missiles.filter(m => m.active || m.trail.length > 0);
   }
 
+  addEmojiPing(state: GameState, cityId: number, emoji: string): void {
+    state.activeEmojis.push({
+      id: Date.now(),
+      cityId,
+      emoji,
+      startTime: Date.now(),
+      duration: 3000
+    });
+  }
+
   private createExplosion(state: GameState, x: number, y: number, color: string, isSmall: boolean, missileId?: number): void {
     const particles: Particle[] = [];
     const count = isSmall ? 15 : 30;
@@ -351,10 +417,21 @@ export class GameService {
       wasIntercepted: false,
       damageApplied: false
     });
+
+    if (!isSmall) {
+      state.screenShake = isNuclear ? 15 : 6;
+    }
   }
 
   updateExplosions(state: GameState, deltaTime: number): void {
     const dtFactor = deltaTime / 16.6;
+
+    if (state.screenShake > 0) {
+      state.screenShake -= 0.5 * dtFactor;
+      if (state.screenShake < 0) state.screenShake = 0;
+    }
+
+    state.activeEmojis = state.activeEmojis.filter(e => Date.now() - e.startTime < e.duration);
 
     for (const exp of state.explosions) {
       if (!exp.active) continue;
@@ -404,6 +481,10 @@ export class GameService {
           b.destroyed = true;
           damage += b.healthValue || 25;
           
+          // África passive: +50% loot
+          const lootMult = city.continentIndex === 3 ? 0 : 1; // Africa doesn't generate loot FOR attackers
+          // Actually: the ATTACKER city needs to benefit — but we don't know the attacker here.
+          // Instead Africa gets +50% credits at end via a separate path.
           state.lootEarned += 1;
           state.floatingRewards.push({
             id: Date.now() + Math.random(),
@@ -423,10 +504,14 @@ export class GameService {
       }
 
       if (damage > 0) {
+        const prevHealth = city.health;
         city.health = Math.max(0, city.health - damage);
         if (city.health <= 0) {
           city.isAlive = false;
           this.destroyCityBuildings(city);
+        } else if (prevHealth > city.maxHealth * 0.25 && city.health <= city.maxHealth * 0.25) {
+          // Trigger revenge alert — handled by app.ts listener
+          (state as any).__revengeAvailable = city.id;
         }
       }
     }
@@ -480,11 +565,38 @@ export class GameService {
     state.currentPlayerIndex = next;
     state.turnNumber++;
 
+    // ─── World Events: trigger every 5 turns ───────────────────────────────
+    if (state.globalEvent) {
+      state.globalEvent.turnsActive--;
+      if (state.globalEvent.turnsActive <= 0) {
+        // Apply resource crisis end effect
+        state.globalEvent = null;
+      }
+    }
+
+    if (!state.globalEvent && state.turnNumber > 1 && state.turnNumber % 5 === 0) {
+      const ev = this.worldEvents[Math.floor(Math.random() * this.worldEvents.length)];
+      state.globalEvent = { ...ev };
+      // Immediate effects
+      if (ev.type === 'resource-crisis') {
+        state.cities.forEach(c => { if (c.isAlive) c.ammo = Math.max(0, c.ammo - 5); });
+      }
+    }
+
     for (const city of state.cities) {
       city.statusEffects.forEach(effect => effect.turns--);
       city.statusEffects = city.statusEffects.filter(e => e.turns > 0);
       city.activeSkills = city.statusEffects.map(e => e.type);
     }
+
+    // Weather change every 3 turns
+    if (state.turnNumber % 3 === 0) {
+        state.weather = { ...this.weatherPool[Math.floor(Math.random() * this.weatherPool.length)] };
+        // Randomize wind slightly for windy/storm
+        if (state.weather.type === 'windy') state.weather.windX = (Math.random() - 0.5) * 1.5;
+        if (state.weather.type === 'storm')  state.weather.windY = (Math.random()) * 0.8;
+    }
+
     state.phase = 'aiming';
   }
 
@@ -501,6 +613,14 @@ export class GameService {
       case 5: state.cities.forEach(c => { if (c.id !== cityId) { const theft = Math.min(c.ammo, 10); c.ammo -= theft; city.ammo += theft; } }); break;
       case 6: city.statusEffects.push({ type: 'hyper-speed', turns: 2 }); break;
       case 7: city.statusEffects.push({ type: 'double-shot', turns: 2 }); break;
+      case 8: // Repair
+        const destroyed = city.buildings.filter(b => b.destroyed);
+        for (let i = 0; i < Math.min(destroyed.length, 3); i++) {
+          destroyed[i].destroyed = false;
+          city.health += destroyed[i].healthValue || 25;
+        }
+        city.health = Math.min(city.health, city.maxHealth);
+        break;
     }
     city.activeSkills = city.statusEffects.map(e => e.type);
   }
@@ -533,5 +653,60 @@ export class GameService {
     let y = target.y + Math.sin(angle) * distance;
 
     return { x, y };
+  }
+
+  /** Grants a free revenge super-missile when the city falls below 25% health for the first time. */
+  triggerRevengeMissile(state: GameState, cityId: number, targetX: number, targetY: number): Missile | null {
+    if (state.revengeUsed[cityId]) return null;
+    const city = state.cities.find(c => c.id === cityId);
+    if (!city || !city.isAlive) return null;
+
+    state.revengeUsed[cityId] = true;
+    city.ammo += 1; // temporarily grant ammo
+    const prev = city.activeSkills.slice();
+    city.activeSkills.push('double-damage'); // revenge shot is always nuclear
+    const m = this.launchMissile(state, cityId, targetX, targetY);
+    // Restore skills
+    city.activeSkills = prev;
+    return m;
+  }
+
+  /** Returns rank label based on XP */
+  getRank(xp: number): { label: string; icon: string; color: string; level: number; nextXP: number; progress: number } {
+    const thresholds = [
+      { xp: 5000, label: 'General de 5 Estrellas', icon: '⭐⭐⭐⭐⭐', color: '#FFD700', level: 6 },
+      { xp: 2500, label: 'Comandante Supremo',    icon: '⭐⭐⭐⭐',   color: '#C0C0C0', level: 5 },
+      { xp: 1000, label: 'Comandante',            icon: '⭐⭐⭐',     color: '#CD7F32', level: 4 },
+      { xp: 500,  label: 'Capitán',               icon: '⭐⭐',       color: '#76ff03', level: 3 },
+      { xp: 200,  label: 'Sargento',              icon: '⭐',         color: '#00e5ff', level: 2 },
+      { xp: 0,    label: 'Recluta',               icon: '🔰',         color: '#9ca3af', level: 1 }
+    ];
+
+    const current = thresholds.find(t => xp >= t.xp) || thresholds[thresholds.length-1];
+    const nextIdx = thresholds.indexOf(current) - 1;
+    const next = nextIdx >= 0 ? thresholds[nextIdx] : null;
+
+    let progress = 0;
+    if (next) {
+      const range = next.xp - current.xp;
+      const gained = xp - current.xp;
+      progress = Math.min(100, (gained / range) * 100);
+    } else {
+      progress = 100;
+    }
+
+    return { 
+      label: current.label, 
+      icon: current.icon, 
+      color: current.color, 
+      level: current.level,
+      nextXP: next ? next.xp : xp,
+      progress
+    };
+  }
+
+  /** Returns the Africa credit multiplier for a given city */
+  getAfricaCreditMultiplier(city: any): number {
+    return city?.continentIndex === 3 ? 1.5 : 1.0;
   }
 }

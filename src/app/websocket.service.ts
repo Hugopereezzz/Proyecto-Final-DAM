@@ -22,6 +22,8 @@ export class WebsocketService {
   skillRoulette$ = new Subject<any>();
   gameOver$ = new Subject<any>();
   playerBecameBot$ = new Subject<{cityId: number}>();
+  worldEvent$ = new Subject<any>();
+  emojiReceived$ = new Subject<any>();
 
   private createRoomResolve?: (res: any) => void;
   private joinRoomResolve?: (res: any) => void;
@@ -93,6 +95,12 @@ export class WebsocketService {
         case 'player-became-bot':
           this.playerBecameBot$.next(payload.data);
           break;
+        case 'world-event':
+          this.worldEvent$.next(payload.data);
+          break;
+        case 'emoji-received':
+          this.emojiReceived$.next(payload.data);
+          break;
       }
     };
   }
@@ -105,17 +113,17 @@ export class WebsocketService {
     this.send('global-chat', { playerName, text });
   }
 
-  createRoom(playerName: string, avatarBase64: string | undefined, isPublic: boolean = false): Promise<any> {
+  createRoom(playerName: string, avatarBase64: string | undefined, missileSkin: string = 'default', isPublic: boolean = false): Promise<any> {
     return new Promise((resolve) => {
       this.createRoomResolve = resolve;
-      this.send('create-room', { playerName, avatarBase64, isPublic });
+      this.send('create-room', { playerName, avatarBase64, missileSkin, isPublic });
     });
   }
 
-  joinRoom(roomId: string, playerName: string, avatarBase64: string | undefined): Promise<any> {
+  joinRoom(roomId: string, playerName: string, avatarBase64: string | undefined, missileSkin: string = 'default'): Promise<any> {
     return new Promise((resolve) => {
       this.joinRoomResolve = resolve;
-      this.send('join-room', { roomId, playerName, avatarBase64 });
+      this.send('join-room', { roomId, playerName, avatarBase64, missileSkin });
     });
   }
 
@@ -145,6 +153,10 @@ export class WebsocketService {
 
   convertToBot(roomId: string, cityId: number) {
     this.send('convert-to-bot', { roomId, cityId });
+  }
+
+  sendEmoji(roomId: string, cityId: number, emoji: string) {
+    this.send('send-emoji', { roomId, cityId, emoji });
   }
 
   private send(type: string, data: any) {

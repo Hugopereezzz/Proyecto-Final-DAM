@@ -30,6 +30,8 @@ export interface City {
   activeSkills: string[];
   isBot?: boolean;
   afkCount?: number;
+  missileSkin?: string;
+  xp?: number;
 }
 
 export interface Missile {
@@ -51,6 +53,7 @@ export interface Missile {
   isStealth?: boolean;
   isNuclear?: boolean;
   active: boolean;
+  skin?: string;
 }
 
 export interface Explosion {
@@ -88,6 +91,35 @@ export interface Star {
 
 export type GamePhase = 'auth' | 'setup' | 'aiming' | 'firing' | 'defending' | 'result' | 'gameover';
 
+export type WorldEventType = 'solar-storm' | 'arms-treaty' | 'spy-satellite' | 'resource-crisis' | null;
+
+export interface WorldEvent {
+  type: WorldEventType;
+  title: string;
+  description: string;
+  icon: string;
+  turnsActive: number;
+}
+
+export type WeatherType = 'clear' | 'windy' | 'storm' | 'fog';
+
+export interface Weather {
+  type: WeatherType;
+  title: string;
+  description: string;
+  icon: string;
+  windX: number;
+  windY: number;
+}
+
+export interface EmojiPing {
+  id: number;
+  cityId: number;
+  emoji: string;
+  startTime: number;
+  duration: number;
+}
+
 export interface FloatingReward {
   id: number;
   x: number;
@@ -109,4 +141,9 @@ export interface GameState {
   phase: GamePhase;
   winner: City | null;
   turnNumber: number;
+  globalEvent: WorldEvent | null;
+  weather: Weather;
+  screenShake: number; // intensity
+  activeEmojis: EmojiPing[];
+  revengeUsed: { [cityId: number]: boolean };
 }

@@ -71,6 +71,7 @@
       <div class="city-card" [class.dead]="!city.isAlive" [style.--city-color]="city.color">
         <div class="city-top-line"></div>
         <div class="city-name-row">
+          <span class="city-rank" [title]="getCityRank(city).label">{{ getCityRank(city).icon }}</span>
           <span class="city-name">{{ city.name }}</span>
           @if (city.isBot) { <span class="bot-tag">BOT</span> }
         </div>

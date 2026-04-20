@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "players") // 'user' is often a reserved keyword in some DBs
@@ -20,6 +21,7 @@ public class User {
     @Column(columnDefinition = "LONGTEXT")
     private String avatarBase64;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -41,6 +43,15 @@ public class User {
     @Column(nullable = false)
     private int alliedSupportCount = 0;
 
+    @Column(nullable = false)
+    private String missileSkin = "default";
+
+    @Column(nullable = false)
+    private int xp = 0;
+
+    @Column(nullable = false)
+    private String ownedSkins = "default";
+
     public User() {}
 
     public User(String username, String password) {
@@ -53,6 +64,9 @@ public class User {
         this.ammoLevel = 0;
         this.speedLevel = 0;
         this.alliedSupportCount = 0;
+        this.missileSkin = "default";
+        this.xp = 0;
+        this.ownedSkins = "default";
     }
 
     public Long getId() { return id; }
@@ -84,4 +98,13 @@ public class User {
     
     public int getAlliedSupportCount() { return alliedSupportCount; }
     public void setAlliedSupportCount(int alliedSupportCount) { this.alliedSupportCount = alliedSupportCount; }
+
+    public String getMissileSkin() { return missileSkin; }
+    public void setMissileSkin(String missileSkin) { this.missileSkin = missileSkin; }
+
+    public int getXp() { return xp; }
+    public void setXp(int xp) { this.xp = xp; }
+
+    public String getOwnedSkins() { return ownedSkins; }
+    public void setOwnedSkins(String ownedSkins) { this.ownedSkins = ownedSkins; }
 }

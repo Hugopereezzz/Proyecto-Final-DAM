@@ -13,6 +13,9 @@ export interface User {
   ammoLevel: number;
   speedLevel: number;
   alliedSupportCount: number;
+  missileSkin?: string;
+  xp?: number;
+  ownedSkins?: string;
 }
 
 @Injectable({
@@ -131,6 +134,18 @@ export class AuthService {
     }
   }
 
+  async buySkin(username: string, skinId: string): Promise<any> {
+    try {
+      const res: any = await firstValueFrom(this.http.post(`${this.apiUrl}/shop/buy-skin`, { username, skinId }));
+      if (res.success) {
+        await this.refreshUserStats(username);
+      }
+      return res;
+    } catch (err: any) {
+      return { success: false, message: err.error?.message || 'Fallo en la compra de skin' };
+    }
+  }
+
   async refreshUserStats(username: string): Promise<void> {
     try {
       const res: any = await firstValueFrom(this.http.get(`${this.apiUrl}/auth/stats/${username}`));
@@ -142,12 +157,13 @@ export class AuthService {
     }
   }
 
-  async updateProfile(username: string, displayName: string, avatarBase64?: string): Promise<{success: boolean, message: string}> {
+  async updateProfile(username: string, displayName: string, avatarBase64?: string, missileSkin?: string): Promise<{success: boolean, message: string}> {
     try {
       const res: any = await firstValueFrom(this.http.post(`${this.apiUrl}/auth/update-profile`, { 
         username, 
         displayName, 
-        avatarBase64 
+        avatarBase64,
+        missileSkin
       }));
       if (res.success) {
         this.currentUserStats.set(res);

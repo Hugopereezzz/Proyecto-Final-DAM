@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["src/styles.css"],
+  "sourcesContent": ["@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');\r\n\r\n*, *::before, *::after {\r\n  margin: 0;\r\n  padding: 0;\r\n  box-sizing: border-box;\r\n}\r\n\r\nhtml, body {\r\n  width: 100%;\r\n  height: 100%;\r\n  overflow: hidden;\r\n  background: #0a0a1a !important;\r\n  color: #ffffff !important;\r\n  font-family: 'Inter', sans-serif;\r\n  -webkit-font-smoothing: antialiased;\r\n  -moz-osx-font-smoothing: grayscale;\r\n}\r\n\r\n/* Force global readability */\r\n* {\r\n  color: inherit;\r\n}\r\n\r\nbutton, input, select, textarea {\r\n  color: #ffffff !important;\r\n  font-family: inherit;\r\n}\r\n\r\n/* ===== GLOBAL TACTICAL UI ===== */\r\n:root {\r\n  --tactical-primary: #00e5ff;\r\n  --tactical-gold: #ffca28;\r\n  --tactical-navy: #0d47a1;\r\n}\r\n\r\n/* Legacy Game Nav styles removed to prevent conflicts with new Sidebar design */\r\n\r\n/* Utility to force white text elsewhere */\r\n.force-white {\r\n  color: #ffffff !important;\r\n}\r\n"],
+  "mappings": ";;;AAEA;AAAG,CAAC;AAAU,CAAC;AACb,UAAQ;AACR,WAAS;AACT,cAAY;AACd;AAEA;AAAM;AACJ,SAAO;AACP,UAAQ;AACR,YAAU;AACV,cAAY;AACZ,SAAO;AACP,eAAa,OAAO,EAAE;AACtB,0BAAwB;AACxB,2BAAyB;AAC3B;AAGA;AACE,SAAO;AACT;AAEA;AAAQ;AAAO;AAAQ;AACrB,SAAO;AACP,eAAa;AACf;AAGA;AACE,sBAAoB;AACpB,mBAAiB;AACjB,mBAAiB;AACnB;AAKA,CAAC;AACC,SAAO;AACT;",
+  "names": []
+}

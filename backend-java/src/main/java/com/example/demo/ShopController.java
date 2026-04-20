@@ -76,4 +76,27 @@ public class ShopController {
         
         return ResponseEntity.ok(new ShopResponse(true, "Compra exitosa", user.getCredits(), user.getAlliedSupportCount()));
     }
+
+    @PostMapping("/buy-skin")
+    public ResponseEntity<ShopResponse> buySkin(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+        String skinId = request.get("skinId");
+        
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) return ResponseEntity.badRequest().body(new ShopResponse(false, "Usuario no encontrado", 0, 0));
+        
+        User user = userOpt.get();
+        if (user.getOwnedSkins().contains(skinId)) {
+            return ResponseEntity.badRequest().body(new ShopResponse(false, "Ya posees esta skin", user.getCredits(), 0));
+        }
+
+        int cost = 500; // Fixed cost for skins
+        if (user.getCredits() < cost) return ResponseEntity.badRequest().body(new ShopResponse(false, "Créditos insuficientes", user.getCredits(), 0));
+
+        user.setCredits(user.getCredits() - cost);
+        user.setOwnedSkins(user.getOwnedSkins() + "," + skinId);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(new ShopResponse(true, "Skin adquirida", user.getCredits(), 0));
+    }
 }

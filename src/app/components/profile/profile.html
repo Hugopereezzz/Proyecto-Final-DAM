@@ -33,7 +33,18 @@
         placeholder="Tu Alias..." 
         maxlength="20" 
       />
-      <div class="rank-label">OPERADOR · NIVEL {{ (stats()?.wins || 0) + 1 }}</div>
+      <div class="xp-system-wrap">
+        <div class="rank-badge" [style.color]="rankData().color">
+          <span>{{ rankData().icon }}</span>
+          <span>{{ rankData().label }}</span>
+        </div>
+        
+        <div class="xp-level-bar">
+          <div class="xp-fill" [style.width.%]="rankData().progress" [style.background]="rankData().color"></div>
+          <div class="xp-text">{{ stats()?.xp || 0 }} / {{ rankData().nextXP }} XP</div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Panel Resumen de Despliegue -->
@@ -62,6 +73,35 @@
             <span class="d-value">{{ stats()?.alliedSupportCount || 0 }}</span>
             <span class="d-label">CARGAS DE APOYO</span>
           </div>
+        </div>
+      </div>
+
+      <!-- Nueva sección de Skins -->
+      <div class="skins-section">
+        <div class="section-label">CONFIGURACIÓN DE ARSENAL (SKINS)</div>
+        <div class="skins-grid">
+          @for (skin of availableSkins; track skin.id) {
+            <div 
+              class="skin-option" 
+              [class.active]="editMissileSkin() === skin.id"
+              [class.locked]="!isOwned(skin.id)"
+              (click)="selectSkin(skin.id)"
+              [style.--skin-color]="skin.color"
+            >
+              <div class="skin-preview">
+                <div class="missile-micro" [style.background]="skin.color"></div>
+              </div>
+              <span class="skin-name">{{ skin.name }}</span>
+              
+              <div class="skin-status">
+                @if (editMissileSkin() === skin.id) {
+                  <span class="skin-check">✓</span>
+                } @else if (!isOwned(skin.id)) {
+                  <span class="skin-price">💰 500</span>
+                }
+              </div>
+            </div>
+          }
         </div>
       </div>
     </div>

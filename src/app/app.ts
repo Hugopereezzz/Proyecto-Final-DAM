@@ -3,15 +3,17 @@ import {
   AfterViewInit, OnDestroy, NgZone, HostListener, OnInit, inject
 } from '@angular/core';
 import { GameService } from './game.service';
-import { GameState, City, Missile, GamePhase } from './models/game.models';
+import { GameState, City, Missile, GamePhase, WorldEvent } from './models/game.models';
 import { WebsocketService, RoomPlayer } from './websocket.service';
 import { AuthService, User as AuthUser } from './auth.service';
+import { SoundService } from './sound.service';
 
 import { LoginComponent } from './components/login/login';
 import { LobbyComponent } from './components/lobby/lobby';
 import { GameHudComponent } from './components/game-hud/game-hud';
 import { RouletteComponent } from './components/roulette/roulette';
 import { GameOverComponent } from './components/game-over/game-over';
+import { DrawService } from './draw.service';
 
 @Component({
   selector: 'app-root',
@@ -21,7 +23,7 @@ import { GameOverComponent } from './components/game-over/game-over';
     LobbyComponent,
     GameHudComponent,
     RouletteComponent,
-    GameOverComponent
+    GameOverComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css'
@@ -30,6 +32,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   public gameService = inject(GameService);
   private wsService = inject(WebsocketService);
   public authService = inject(AuthService);
+  private drawService = inject(DrawService);
+  public soundService = inject(SoundService);
 
   @ViewChild('gameCanvas') canvasRef!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
@@ -61,8 +65,14 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   rouletteDisplaySkill = signal('');
   rouletteSkillDescription = signal('');
   
-  // Shop signals
+  // Shop & Stats signals
   showShop = signal(false);
+  showStats = signal(false);
+
+  // New feature signals
+  revengeReadyCityId = signal<number | null>(null);   // Revenge Final mechanic
+  worldEventToast = signal<WorldEvent | null>(null);  // World event popup
+  soundEnabled = signal(true);
   
   public readonly skillNames = [
     'Dron Centinela (Auto-DEF)',
@@ -72,7 +82,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     'Pulso EMP (Bloquear Enemigo)',
     'Sabotaje de Munición',
     'Misil Hipersónico',
-    'Golpe Espejo (¡Doble!)'
+    'Golpe Espejo (¡Doble!)',
+    'Brigada de Reparación'
   ];
 
   public readonly skillDescriptions = [
@@ -83,7 +94,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     'Bloquea temporalmente el sistema de defensa de todos los enemigos.',
     'Roba misiles de las reservas enemigas y añádelos a la tuya.',
     'Tu misil viajará a extrema velocidad para reducir la reacción enemiga.',
-    'Lanzarás automáticamente dos misiles simultáneos en tu próximo ataque.'
+    'Lanzarás automáticamente dos misiles simultáneos en tu próximo ataque.',
+    'Repara hasta 3 edificios destruidos y restaura salud a tu ciudad.'
   ];
   
   private mouseX = 0;
@@ -223,9 +235,29 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       const elapsed = data.timestamp ? (Date.now() - (data.timestamp as number) + latency) : 0;
       
       this.gameService.launchMissile(this.state, data.fromCityId, data.targetX, data.targetY, elapsed);
-      // Trigger a light shake on launch
+      this.soundService.playLaunch();
+
+      // Siren if missile is targeting MY city
+      const myCity = this.state.cities.find(c => c.id === this.myCityId());
+      if (myCity && Math.abs(data.targetX - myCity.x) < 120) {
+        this.soundService.playSiren();
+      }
+
+      // Screen shake
       this.screenShake = 3;
       this.syncSignals();
+
+      // Check if revenge becomes available after damage resolves
+      setTimeout(() => {
+        const revId = (this.state as any).__revengeAvailable;
+        if (revId !== undefined && this.state.cities.find(c => c.id === revId)?.id === this.myCityId()) {
+          if (!this.state.revengeUsed[revId]) {
+            this.revengeReadyCityId.set(revId);
+            this.soundService.playRevengeReady();
+          }
+          delete (this.state as any).__revengeAvailable;
+        }
+      }, 1500);
     });
 
     this.wsService.defenseLaunched$.subscribe(data => {
@@ -245,6 +277,26 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.wsService.turnAdvanced$.subscribe(data => {
       this.gameService.advanceTurn(this.state, data.nextPlayerIndex, data.nextCityId);
       this.turnTimer.set(30);
+
+      // World Event toast
+      if (this.state.globalEvent) {
+        this.worldEventToast.set(this.state.globalEvent);
+        this.soundService.playWorldEvent();
+        setTimeout(() => this.worldEventToast.set(null), 5000);
+      }
+
+      // Africa passive: apply loot multiplier for local player
+      const myCity = this.state.cities.find(c => c.id === this.myCityId());
+      if (myCity && myCity.continentIndex === 3) {
+        // Extra 50% loot credited each turn — visual only, real credits by backend
+        // (actual implementation via recordPayout at game end)
+      }
+
+      // Update bg tension based on player health
+      if (myCity) {
+        this.soundService.setBgTension(myCity.health / myCity.maxHealth);
+      }
+
       this.syncSignals();
     });
 
@@ -280,9 +332,13 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         const myUser = this.authService.currentUser();
         if (myUser && !this.hasPaidOut) {
            this.hasPaidOut = true;
-           this.authService.recordPayout(myUser, this.state.lootEarned);
+           const myCity = this.state.cities.find(c => c.id === this.myCityId());
+           const multi = this.gameService.getAfricaCreditMultiplier(myCity);
+           const adjustedLoot = Math.round(this.state.lootEarned * multi);
+           this.authService.recordPayout(myUser, adjustedLoot);
         }
 
+        this.soundService.stopBg();
         this.syncSignals();
         this.refreshLeaderboard();
         if (myUser) {
@@ -290,9 +346,20 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     });
+
+    this.wsService.emojiReceived$.subscribe(data => {
+      if (this.state) {
+        this.gameService.addEmojiPing(this.state, data.cityId, data.emoji);
+      }
+    });
   }
 
-  ngAfterViewInit(): void {}
+  ngAfterViewInit(): void {
+    if (this.canvasRef) {
+      this.ctx = this.canvasRef.nativeElement.getContext('2d')!;
+      this.resizeCanvas();
+    }
+  }
 
   ngOnDestroy(): void {
     if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
@@ -352,8 +419,10 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async createRoom(): Promise<void> {
-    const avatar = this.authService.currentUserStats()?.avatarBase64;
-    const res = await this.wsService.createRoom(this.playerName().trim(), avatar);
+    const stats = this.authService.currentUserStats();
+    const avatar = stats?.avatarBase64;
+    const skin = stats?.missileSkin || 'default';
+    const res = await this.wsService.createRoom(this.playerName().trim(), avatar, skin);
     if (res.success && res.roomId) {
       this.currentRoomId.set(res.roomId);
       this.myCityId.set(res.cityId);
@@ -362,8 +431,10 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async joinRoom(): Promise<void> {
-    const avatar = this.authService.currentUserStats()?.avatarBase64;
-    const res = await this.wsService.joinRoom(this.joinRoomId(), this.playerName().trim(), avatar);
+    const stats = this.authService.currentUserStats();
+    const avatar = stats?.avatarBase64;
+    const skin = stats?.missileSkin || 'default';
+    const res = await this.wsService.joinRoom(this.joinRoomId(), this.playerName().trim(), avatar, skin);
     if (res.success && res.roomId) {
       this.currentRoomId.set(res.roomId);
       this.myCityId.set(res.cityId);
@@ -393,6 +464,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.state = this.gameService.initGame(canvas.width, canvas.height, players, this.authService.currentUserStats());
     this.syncSignals();
     this.lastFrameTime = performance.now();
+    // Start ambient battle music
+    this.soundService.startBg();
     this.gameLoop();
   }
 
@@ -773,7 +846,10 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     if (this.state.explosions.length > prevExplosionCount) {
       const lastExp = this.state.explosions[this.state.explosions.length - 1];
       if (lastExp.isCityImpact) {
-        this.screenShake = 12; // Heavy shake on impact
+        this.screenShake = 12;
+        this.soundService.playExplosion();
+      } else {
+        this.soundService.playIntercept();
       }
     }
 
@@ -812,234 +888,56 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     if (act) {
       this.wsService.launchMissile(this.currentRoomId(), cityId, act.x, act.y);
     } else {
-      // If act is null (no target available), just advance turn
       const nextData = this.getNextTurnData();
       this.wsService.advanceTurn(this.currentRoomId(), nextData.index, nextData.cityId);
     }
   }
 
+  /** Fires the free revenge super-missile (called from template button) */
+  callRevengeMissile(): void {
+    const cityId = this.revengeReadyCityId();
+    if (cityId === null || !this.state) return;
+    if (!this.isMyTurn()) return; // must be your turn
+
+    // Pick highest-health enemy as target
+    const enemies = this.state.cities.filter(c => c.isAlive && c.id !== cityId);
+    if (!enemies.length) return;
+    const target = enemies.reduce((a, b) => a.health > b.health ? a : b);
+
+    this.gameService.triggerRevengeMissile(this.state, cityId, target.x, target.y);
+    this.wsService.launchMissile(this.currentRoomId(), cityId, target.x, target.y);
+    this.soundService.playLaunch();
+    this.revengeReadyCityId.set(null); // consumed
+    this.syncSignals();
+  }
+
+  toggleSound(): void {
+    const next = !this.soundEnabled();
+    this.soundEnabled.set(next);
+    this.soundService.setEnabled(next);
+  }
+
+  sendEmoji(emoji: string) {
+    this.wsService.sendEmoji(this.currentRoomId(), this.myCityId(), emoji);
+  }
+
   private render(): void {
-    if (!this.canvasRef || !this.ctx) return;
-    const canvas = this.canvasRef.nativeElement;
-    const ctx = this.ctx;
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // Background & Shake
-    ctx.fillStyle = '#0a0a14';
-    ctx.fillRect(0, 0, w, h);
-
-    ctx.save();
-    if (this.screenShake > 0) {
-      const sx = (Math.random() - 0.5) * this.screenShake;
-      const sy = (Math.random() - 0.5) * this.screenShake;
-      ctx.translate(sx, sy);
-    }
-
-    // Stars
-    for (const star of this.state.stars) {
-      ctx.globalAlpha = star.alpha;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-
-    // Continent Highlight
-    if (this.continentPaths.length > 0) {
-      const myIdx = this.myContinentIndex();
-      this.continentPaths.forEach((path, idx) => {
-        const isMine = idx === myIdx;
-        if (isMine) {
-          ctx.strokeStyle = this.state.cities.find(c => c.id === this.myCityId())?.color || '#00e5ff';
-          ctx.lineWidth = 2.5;
-          ctx.fillStyle = ctx.strokeStyle + '44';
-          ctx.shadowBlur = 15;
-          ctx.shadowColor = ctx.strokeStyle;
-        } else {
-          ctx.strokeStyle = 'rgba(0, 150, 255, 0.25)';
-          ctx.lineWidth = 1;
-          ctx.fillStyle = 'rgba(10, 40, 80, 0.4)';
-          ctx.shadowBlur = 0;
-        }
-        ctx.fill(path);
-        ctx.stroke(path);
-      });
-      ctx.shadowBlur = 0; 
-    }
-    
-    // UI Scanlines
-    ctx.fillStyle = 'rgba(0, 255, 100, 0.02)';
-    for (let i = 0; i < h; i += 4) {
-      ctx.fillRect(0, i, w, 1);
-    }
-
-    this.renderGround(ctx, w, h);
-    this.renderCities(ctx);
-    this.renderMissiles(ctx);
-    this.renderExplosions(ctx);
-    this.renderFloatingRewards(ctx);
-    this.renderCrosshair(ctx);
-    this.renderDamageZones(ctx);
-  }
-
-  private renderFloatingRewards(ctx: CanvasRenderingContext2D): void {
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 16px "Orbitron", sans-serif';
-    
-    for (const reward of this.state.floatingRewards) {
-      ctx.globalAlpha = reward.alpha;
-      ctx.fillStyle = '#ffca28';
-      
-      // Draw small coin dot
-      ctx.beginPath();
-      ctx.arc(reward.x - 25, reward.y - reward.yOffset, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // Draw text
-      ctx.fillText(reward.value, reward.x + 10, reward.y - reward.yOffset + 5);
-    }
-    ctx.globalAlpha = 1.0;
-  }
-
-  private renderGround(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-    const groundY = h - 60;
-    const grd = ctx.createLinearGradient(0, groundY, 0, h);
-    grd.addColorStop(0, '#1a1a3a');
-    grd.addColorStop(1, '#0f0f2a');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, groundY, w, 60);
-    ctx.strokeStyle = 'rgba(100, 100, 255, 0.2)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, groundY);
-    ctx.lineTo(w, groundY);
-    ctx.stroke();
-  }
-
-  private renderCities(ctx: CanvasRenderingContext2D): void {
-    for (const city of this.state.cities) {
-      for (const b of city.buildings) {
-        if (b.destroyed) {
-          ctx.fillStyle = 'rgba(80, 20, 20, 0.8)';
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-          ctx.fill();
-          continue;
-        }
-        ctx.fillStyle = b.color;
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        const pulse = 8 + Math.sin(Date.now() * 0.005 + b.x) * 2;
-        ctx.arc(b.x, b.y, pulse, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(0, 255, 150, 0.15)`;
-        ctx.stroke();
+    if (!this.canvasRef || !this.ctx || !this.state) return;
+    this.drawService.render(
+      this.ctx, 
+      this.state, 
+      this.screenShake, 
+      this.continentPaths,
+      {
+         mouseX: this.mouseX,
+         mouseY: this.mouseY,
+         myCityId: this.myCityId(),
+         isMyTurn: this.isMyTurn(),
+         myContinentIndex: this.myContinentIndex()
       }
-
-      if (city.isAlive) {
-        ctx.fillStyle = 'rgba(0, 20, 40, 0.6)';
-        const hudW = 90;
-        const hudH = 35;
-        const hudX = city.x - hudW / 2;
-        const hudY = city.y - 45;
-        ctx.strokeStyle = city.color;
-        ctx.fillRect(hudX, hudY, hudW, hudH);
-        ctx.strokeRect(hudX, hudY, hudW, hudH);
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(city.name, city.x, hudY + 12);
-        const barW = 80;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.fillRect(city.x - barW/2, hudY + 22, barW, 4);
-        ctx.fillStyle = city.color;
-        ctx.fillRect(city.x - barW/2, hudY + 22, barW * (city.health / city.maxHealth), 4);
-      }
-
-      if (city.id === this.state.cities[this.state.currentPlayerIndex]?.id && city.isAlive && this.state.phase === 'aiming') {
-        const bounce = Math.sin(Date.now() * 0.005) * 4;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText('▼', city.x, city.y - 65 + bounce);
-      }
-    }
+    );
   }
 
-  private renderMissiles(ctx: CanvasRenderingContext2D): void {
-    for (const missile of this.state.missiles) {
-      for (const tp of missile.trail) {
-        ctx.beginPath();
-        ctx.arc(tp.x, tp.y, 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${tp.alpha * 0.4})`;
-        ctx.fill();
-      }
-      if (!missile.active) continue;
-      ctx.beginPath();
-      ctx.arc(missile.currentX, missile.currentY, missile.isDefensive ? 3 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = missile.color;
-      ctx.fill();
-    }
-  }
-
-  private renderExplosions(ctx: CanvasRenderingContext2D): void {
-    for (const exp of this.state.explosions) {
-      if (exp.alpha > 0) {
-        ctx.beginPath();
-        ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
-        const grad = ctx.createRadialGradient(exp.x, exp.y, 0, exp.x, exp.y, exp.radius);
-        grad.addColorStop(0, exp.color + 'aa');
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-      for (const p of exp.particles) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 200, 100, ${p.alpha})`;
-        ctx.fill();
-      }
-    }
-  }
-
-  private renderCrosshair(ctx: CanvasRenderingContext2D): void {
-    if (this.state.phase !== 'aiming' || !this.isMyTurn()) return;
-    const currentCity = this.state.cities[this.myCityId()];
-    if (!currentCity) return;
-    
-    const dist = Math.hypot(this.mouseX - currentCity.x, this.mouseY - currentCity.y);
-    if (dist < 80) return;
-    ctx.strokeStyle = 'rgba(255, 50, 50, 0.6)';
-    ctx.beginPath();
-    ctx.moveTo(this.mouseX - 15, this.mouseY); ctx.lineTo(this.mouseX + 15, this.mouseY);
-    ctx.moveTo(this.mouseX, this.mouseY - 15); ctx.lineTo(this.mouseX, this.mouseY + 15);
-    ctx.stroke();
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.moveTo(currentCity.x, currentCity.y - 40);
-    ctx.lineTo(this.mouseX, this.mouseY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  private renderDamageZones(ctx: CanvasRenderingContext2D): void {
-    if (this.state.phase !== 'aiming' || !this.isMyTurn()) return;
-    for (const city of this.state.cities) {
-      if (!city.isAlive || city.id === this.myCityId()) continue;
-      if (Math.hypot(this.mouseX - city.x, this.mouseY - city.y) > 200) continue;
-      for (const b of city.buildings) {
-        if (b.destroyed) continue;
-        if (Math.abs(this.mouseX - b.x) < 15 && Math.abs(this.mouseY - b.y) < 15) {
-          ctx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
-          ctx.beginPath(); ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); ctx.stroke();
-        }
-      }
-    }
-  }
   async buyUpgrade(stat: string) {
     const user = this.authService.currentUser();
     if (!user) return;
@@ -1060,14 +958,13 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     const stats = this.authService.currentUserStats();
     if (!stats || stats.alliedSupportCount <= 0) return;
     
-    // Pick first alive enemy city
     const targetCity = this.state.cities.find(c => c.id !== this.myCityId() && c.isAlive);
     if (targetCity) {
       this.gameService.launchAlliedMissile(this.state, targetCity.x, targetCity.y);
-      // Local decrement
       stats.alliedSupportCount--;
       this.authService.currentUserStats.set({...stats});
       this.syncSignals();
     }
   }
 }
+

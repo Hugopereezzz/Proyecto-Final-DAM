@@ -30,6 +30,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PartidaRepository partidaRepository;
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final SecureRandom random = new SecureRandom();
 
@@ -49,6 +52,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         public int continentIndex = -1; // -1 means not chosen yet
         public boolean isBot = false;
         public String avatarBase64;
+        public String missileSkin = "default";
+        public int xp = 0;
     }
 
     static class Room {
@@ -143,6 +148,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "get-public-rooms":
                 send(session, "public-rooms-update", getPublicRoomsList());
                 break;
+            case "send-emoji":
+                handleSendEmoji(session, data);
+                break;
         }
     }
 
@@ -234,6 +242,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             broadcast(room, "game-over", Map.of("winnerName", winnerName));
             broadcast(room, "room-update", room.players);
             
+            // Save match to SQL DB
+            try {
+                Partida p = new Partida();
+                p.estado = "FINALIZADA";
+                p.ganador = winnerName;
+                // Find continent index of winner
+                p.continentGanador = room.players.stream()
+                    .filter(pl -> pl.name.equals(winnerName))
+                    .map(pl -> pl.continentIndex)
+                    .findFirst().orElse(-1);
+
+                p.numeroRonda = room.turnCount / (room.players.isEmpty() ? 1 : room.players.size());
+                p.infoParticipantes = mapper.writeValueAsString(room.players);
+                partidaRepository.save(p);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            
             if (room.isPublic) {
                 broadcastPublicRooms();
             }
@@ -265,7 +291,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void handleCreateRoom(WebSocketSession session, Map<String, Object> data) throws IOException {
         String playerName = (String) data.get("playerName");
         String avatarBase64 = (String) data.get("avatarBase64");
-        
+        String missileSkin = (String) data.getOrDefault("missileSkin", "default");
+
+        int xp = 0;
+        Optional<User> userOpt = userRepository.findByUsername(playerName);
+        if (userOpt.isPresent()) xp = userOpt.get().getXp();
+
         Object isPublicRaw = data.get("isPublic");
         boolean isPublic = false;
         if (isPublicRaw instanceof Boolean) {
@@ -286,6 +317,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         host.id = session.getId();
         host.name = playerName;
         host.avatarBase64 = avatarBase64;
+        host.missileSkin = missileSkin;
+        host.xp = xp;
         host.cityId = 0;
         room.players.add(host);
         
@@ -303,6 +336,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         String roomId = (String) data.get("roomId");
         String playerName = (String) data.get("playerName");
         String avatarBase64 = (String) data.get("avatarBase64");
+        String missileSkin = (String) data.getOrDefault("missileSkin", "default");
+        
+        int xp = 0;
+        Optional<User> userOpt = userRepository.findByUsername(playerName);
+        if (userOpt.isPresent()) xp = userOpt.get().getXp();
 
         if (roomId != null) roomId = roomId.toUpperCase();
 
@@ -326,6 +364,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         p.id = session.getId();
         p.name = playerName;
         p.avatarBase64 = avatarBase64;
+        p.missileSkin = missileSkin;
+        p.xp = xp;
         
         int maxCityId = -1;
         for (Player existing : room.players) {
@@ -368,7 +408,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void handleLaunchMissile(WebSocketSession session, Map<String, Object> data) throws IOException {
         String roomId = (String) data.get("roomId");
         Room room = rooms.get(roomId);
-        if (room != null) {
+        if (room != null && room.inGame) {
+            // Server-side validation: Is it this player's turn?
+            Integer fromCityId = (Integer) data.get("fromCityId");
+            if (fromCityId == null || fromCityId != room.currentPlayerId) {
+                System.out.println("Invalid turn attempt by city " + fromCityId);
+                return;
+            }
+
             Map<String, Object> mutableData = new HashMap<>(data);
             mutableData.put("timestamp", System.currentTimeMillis());
             broadcast(room, "missile-launched", mutableData);
@@ -384,6 +431,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             // Move probabilistic decision to server for synchronization
             mutableData.put("hitSuccess", true);
             broadcast(room, "defense-launched", mutableData);
+        }
+    }
+
+    private void handleSendEmoji(WebSocketSession session, Map<String, Object> data) throws IOException {
+        String roomId = (String) data.get("roomId");
+        Room room = rooms.get(roomId);
+        if (room != null) {
+            broadcast(room, "emoji-received", data);
         }
     }
 
