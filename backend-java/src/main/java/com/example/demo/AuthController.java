@@ -68,7 +68,7 @@ public class AuthController {
         Optional<User> user = userRepository.findByUsername(request.username);
         
         if (user.isEmpty() || !user.get().getPassword().equals(request.password)) {
-            return ResponseEntity.status(401).body(new AuthResponse(null, false, "Credenciales inválidas"));
+            return ResponseEntity.status(401).body(new AuthResponse(null, false, "Usuario o contraseña inválidos"));
         }
 
         return ResponseEntity.ok(new AuthResponse(user.get(), true, "Inicio de sesión con éxito"));
