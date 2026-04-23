@@ -1,0 +1,23 @@
+/* Estilos mínimos para el modo debug del Lobby */
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.lobby-debug {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #fff;
+  font-family: sans-serif;
+  background-color: #1a1a1a; /* Fondo oscuro simple */
+}
+
+h1 {
+  font-size: 3rem;
+  color: #00d4ff;
+  margin-bottom: 10px;
+}
