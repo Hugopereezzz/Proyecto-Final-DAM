@@ -2,15 +2,6 @@ package com.example.demo;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Component;
-import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.TextWebSocketHandler;
-
-import java.io.IOException;
-import java.security.SecureRandom;
-import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -22,16 +13,15 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
+
 
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
     @Autowired
     private UserRepository userRepository;
-
-    @Autowired
-    private PartidaRepository partidaRepository;
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final SecureRandom random = new SecureRandom();
@@ -50,24 +40,23 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         public String name;
         public int cityId;
         public int continentIndex = -1; // -1 means not chosen yet
+        public int factionId = -1;      // -1 means not chosen yet
         public boolean isBot = false;
+        public boolean isReady = false;
         public String avatarBase64;
-        public String missileSkin = "default";
-        public int xp = 0;
     }
 
     static class Room {
         public String id;
-        public List<Player> players = new ArrayList<>();
+        public List<Player> players = new CopyOnWriteArrayList<>();
         public boolean inGame = false;
         public long lastTurnTime = System.currentTimeMillis();
         public int turnCount = 0;
         public boolean isPublic = false;
         public String hostName = "";
+        public String roomName = "";
         public int currentPlayerIndex = 0;
         public int currentPlayerId = 0;
-        public Map<String, Object> weather = new HashMap<>();
-        public Map<String, Object> globalEvent = null;
     }
 
     @Override
@@ -86,6 +75,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     if (p.id.equals(session.getId())) {
                         p.isBot = true;
                         broadcast(room, "player-became-bot", Map.of("cityId", p.cityId));
+                        broadcast(room, "room-update", room.players);
                         break;
                     }
                 }
@@ -99,6 +89,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 if (room.players.isEmpty()) {
                     rooms.remove(room.id);
                 } else {
+                    // Update host name if the old host left (compare by name)
+                    if (!room.players.stream().anyMatch(p -> p.name.equals(room.hostName) && !p.isBot)) {
+                        room.hostName = room.players.stream().filter(p -> !p.isBot).findFirst().map(p -> p.name).orElse(room.players.get(0).name);
+                    }
                     broadcast(room, "room-update", room.players);
                 }
                 if (room.isPublic && !room.inGame) {
@@ -138,6 +132,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "choose-continent":
                 handleChooseContinent(session, data);
                 break;
+            case "choose-faction":
+                handleChooseFaction(session, data);
+                break;
+            case "toggle-ready":
+                handleToggleReady(session, data);
+                break;
             case "report-victory":
                 handleReportVictory(session, data);
                 break;
@@ -147,15 +147,30 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "global-chat":
                 handleGlobalChat(session, data);
                 break;
+            case "room-chat":
+                handleRoomChat(session, data);
+                break;
+            case "leave-room":
+                handleLeaveRoom(session, data);
+                break;
             case "get-public-rooms":
                 send(session, "public-rooms-update", getPublicRoomsList());
                 break;
-            case "send-emoji":
-                handleSendEmoji(session, data);
-                break;
-            case "ping":
-                send(session, "pong", Map.of("timestamp", System.currentTimeMillis()));
-                break;
+        }
+    }
+
+    private void handleToggleReady(WebSocketSession session, Map<String, Object> data) throws IOException {
+        String roomId = (String) data.get("roomId");
+        if (roomId != null) roomId = roomId.toUpperCase();
+        Room room = rooms.get(roomId);
+        if (room != null && !room.inGame) {
+            for (Player p : room.players) {
+                if (p.id.equals(session.getId())) {
+                    p.isReady = !p.isReady;
+                    broadcast(room, "room-update", room.players);
+                    break;
+                }
+            }
         }
     }
 
@@ -176,12 +191,29 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private void handleRoomChat(WebSocketSession session, Map<String, Object> data) throws IOException {
+        String roomId = (String) data.get("roomId");
+        String playerName = (String) data.getOrDefault("playerName", "Unknown");
+        String text = (String) data.getOrDefault("text", "");
+        if (text.isEmpty() || roomId == null) return;
+        
+        Room room = rooms.get(roomId);
+        if (room != null) {
+            Map<String, Object> msg = new HashMap<>();
+            msg.put("playerName", playerName);
+            msg.put("text", text);
+            msg.put("timestamp", System.currentTimeMillis());
+            broadcast(room, "room-chat-message", msg);
+        }
+    }
+
     private List<Map<String, Object>> getPublicRoomsList() {
         return rooms.values().stream()
             .filter(r -> r.isPublic && !r.inGame && r.players.size() < 4)
             .map(r -> {
                 Map<String, Object> map = new HashMap<>();
                 map.put("roomId", r.id);
+                map.put("roomName", r.roomName);
                 map.put("hostName", r.hostName);
                 map.put("playerCount", r.players.size());
                 return map;
@@ -192,6 +224,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void broadcastPublicRooms() throws IOException {
         List<Map<String, Object>> publicRooms = getPublicRoomsList();
         String message = mapper.writeValueAsString(Map.of("type", "public-rooms-update", "data", publicRooms));
+        TextMessage textMessage = new TextMessage(message);
+        for (WebSocketSession s : sessions.values()) {
+            if (s.isOpen()) s.sendMessage(textMessage);
+        }
+    }
+
+    private void broadcastLeaderboardUpdate() throws IOException {
+        String message = mapper.writeValueAsString(Map.of("type", "leaderboard-update", "data", Map.of()));
         TextMessage textMessage = new TextMessage(message);
         for (WebSocketSession s : sessions.values()) {
             if (s.isOpen()) s.sendMessage(textMessage);
@@ -225,10 +265,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             // Remove disconnected players/bots so the room is clean for the next game
             room.players.removeIf(p -> p.isBot);
             
-            // Reset continent selection for remaining players
+            // Reset continent selection, faction and ready status for remaining players
             for (Player p : room.players) {
                 p.continentIndex = -1;
+                p.factionId = -1;
+                p.isReady = false;
             }
+            broadcast(room, "room-update", room.players);
 
             if (room.players.isEmpty()) {
                 rooms.remove(roomId);
@@ -242,28 +285,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 u.setWins(u.getWins() + 1);
                 u.setCredits(u.getCredits() + 100);
                 userRepository.save(u);
+                broadcastLeaderboardUpdate();
             }
-
+            
             broadcast(room, "game-over", Map.of("winnerName", winnerName));
             broadcast(room, "room-update", room.players);
-            
-            // Save match to SQL DB
-            try {
-                Partida p = new Partida();
-                p.estado = "FINALIZADA";
-                p.ganador = winnerName;
-                // Find continent index of winner
-                p.continentGanador = room.players.stream()
-                    .filter(pl -> pl.name.equals(winnerName))
-                    .map(pl -> pl.continentIndex)
-                    .findFirst().orElse(-1);
-
-                p.numeroRonda = room.turnCount / (room.players.isEmpty() ? 1 : room.players.size());
-                p.infoParticipantes = mapper.writeValueAsString(room.players);
-                partidaRepository.save(p);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
             
             if (room.isPublic) {
                 broadcastPublicRooms();
@@ -271,8 +297,32 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private void handleChooseFaction(WebSocketSession session, Map<String, Object> data) throws IOException {
+        String roomId = (String) data.get("roomId");
+        if (roomId != null) roomId = roomId.toUpperCase();
+        Integer factionId = (Integer) data.get("factionId");
+        
+        Room room = rooms.get(roomId);
+        if (room != null && !room.inGame) {
+            for (Player p : room.players) {
+                if (p.id.equals(session.getId())) {
+                    // Unique faction check
+                    boolean taken = room.players.stream()
+                        .anyMatch(other -> other.factionId == factionId && !other.id.equals(p.id));
+                    
+                    if (!taken) {
+                        p.factionId = factionId;
+                        broadcast(room, "room-update", room.players);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private void handleChooseContinent(WebSocketSession session, Map<String, Object> data) throws IOException {
         String roomId = (String) data.get("roomId");
+        if (roomId != null) roomId = roomId.toUpperCase();
         Integer continentIndex = (Integer) data.get("continentIndex");
         
         Room room = rooms.get(roomId);
@@ -295,13 +345,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private void handleCreateRoom(WebSocketSession session, Map<String, Object> data) throws IOException {
         String playerName = (String) data.get("playerName");
+        String roomName = (String) data.get("roomName");
         String avatarBase64 = (String) data.get("avatarBase64");
-        String missileSkin = (String) data.getOrDefault("missileSkin", "default");
-
-        int xp = 0;
-        Optional<User> userOpt = userRepository.findByUsername(playerName);
-        if (userOpt.isPresent()) xp = userOpt.get().getXp();
-
+        
+        if (roomName == null || roomName.trim().isEmpty()) {
+            roomName = "Operación de " + (playerName != null ? playerName : "Agente");
+        }
+        
         Object isPublicRaw = data.get("isPublic");
         boolean isPublic = false;
         if (isPublicRaw instanceof Boolean) {
@@ -316,20 +366,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         room.id = roomId;
         room.isPublic = isPublic;
         room.hostName = playerName;
+        room.roomName = roomName;
         rooms.put(roomId, room);
 
         Player host = new Player();
         host.id = session.getId();
         host.name = playerName;
         host.avatarBase64 = avatarBase64;
-        host.missileSkin = missileSkin;
-        host.xp = xp;
         host.cityId = 0;
         room.players.add(host);
         
         playerRooms.put(session.getId(), room);
 
-        send(session, "room-created", Map.of("success", true, "roomId", roomId, "cityId", 0));
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("success", true);
+        resp.put("roomId", roomId);
+        resp.put("roomName", room.roomName);
+        resp.put("cityId", 0);
+        send(session, "room-created", resp);
         broadcast(room, "room-update", room.players);
         
         if (room.isPublic) {
@@ -341,11 +395,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         String roomId = (String) data.get("roomId");
         String playerName = (String) data.get("playerName");
         String avatarBase64 = (String) data.get("avatarBase64");
-        String missileSkin = (String) data.getOrDefault("missileSkin", "default");
-        
-        int xp = 0;
-        Optional<User> userOpt = userRepository.findByUsername(playerName);
-        if (userOpt.isPresent()) xp = userOpt.get().getXp();
 
         if (roomId != null) roomId = roomId.toUpperCase();
 
@@ -365,12 +414,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
              return;
         }
 
+        // Evitar duplicados por nombre en la misma sala (limpieza de sesiones fantasma)
+        room.players.removeIf(p -> p.name.equalsIgnoreCase(playerName));
+
         Player p = new Player();
         p.id = session.getId();
         p.name = playerName;
         p.avatarBase64 = avatarBase64;
-        p.missileSkin = missileSkin;
-        p.xp = xp;
         
         int maxCityId = -1;
         for (Player existing : room.players) {
@@ -384,7 +434,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         
         playerRooms.put(session.getId(), room);
 
-        send(session, "room-joined", Map.of("success", true, "roomId", roomId, "cityId", p.cityId));
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("success", true);
+        resp.put("roomId", roomId);
+        resp.put("roomName", room.roomName);
+        resp.put("cityId", p.cityId);
+        send(session, "room-joined", resp);
         broadcast(room, "room-update", room.players);
         
         if (room.isPublic) {
@@ -394,8 +449,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private void handleStartGame(WebSocketSession session, Map<String, Object> data) throws IOException {
         String roomId = (String) data.get("roomId");
+        if (roomId != null) roomId = roomId.toUpperCase();
         Room room = rooms.get(roomId);
-        if (room != null && !room.inGame) {
+        if (room != null && !room.inGame && room.players.size() >= 2) {
+            // Server-side validation for Ready-up, and Faction selection
+            // Bots are always considered "valid" for starting
+            boolean allValid = room.players.stream().allMatch(p -> p.isBot || (p.isReady && p.factionId >= 0));
+            if (!allValid) return;
+
             room.inGame = true;
             room.turnCount = 0;
             room.currentPlayerIndex = 0;
@@ -403,15 +464,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (!room.players.isEmpty()) {
                 room.currentPlayerId = room.players.get(0).cityId;
             }
-            
-            // Initial weather
-            room.weather.put("type", "clear");
-            room.weather.put("title", "☀️ DESPEJADO");
-            room.weather.put("icon", "☀️");
-            room.weather.put("windX", 0.0);
-            room.weather.put("windY", 0.0);
-
-            broadcast(room, "game-started", Map.of("players", room.players, "weather", room.weather));
+            broadcast(room, "game-started", Map.of("players", room.players));
             if (room.isPublic) {
                 broadcastPublicRooms();
             }
@@ -421,14 +474,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void handleLaunchMissile(WebSocketSession session, Map<String, Object> data) throws IOException {
         String roomId = (String) data.get("roomId");
         Room room = rooms.get(roomId);
-        if (room != null && room.inGame) {
-            // Server-side validation: Is it this player's turn?
-            Integer fromCityId = (Integer) data.get("fromCityId");
-            if (fromCityId == null || fromCityId != room.currentPlayerId) {
-                System.out.println("Invalid turn attempt by city " + fromCityId);
-                return;
-            }
-
+        if (room != null) {
             Map<String, Object> mutableData = new HashMap<>(data);
             mutableData.put("timestamp", System.currentTimeMillis());
             broadcast(room, "missile-launched", mutableData);
@@ -447,11 +493,44 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void handleSendEmoji(WebSocketSession session, Map<String, Object> data) throws IOException {
+    private void handleLeaveRoom(WebSocketSession session, Map<String, Object> data) throws IOException {
         String roomId = (String) data.get("roomId");
+        if (roomId != null) roomId = roomId.toUpperCase();
         Room room = rooms.get(roomId);
         if (room != null) {
-            broadcast(room, "emoji-received", data);
+            if (room.inGame) {
+                // Durante partida, no expulsar, convertir en bot para mantener el estado
+                for (Player p : room.players) {
+                    if (p.id.equals(session.getId())) {
+                        p.isBot = true;
+                        broadcast(room, "player-became-bot", Map.of("cityId", p.cityId));
+                        break;
+                    }
+                }
+                // Si todos son bots ahora, cerramos la sala
+                boolean allBots = room.players.stream().allMatch(p -> p.isBot);
+                if (allBots) {
+                    rooms.remove(roomId);
+                } else {
+                    broadcast(room, "room-update", room.players);
+                }
+            } else {
+                room.players.removeIf(p -> p.id.equals(session.getId()));
+                if (room.players.isEmpty()) {
+                    rooms.remove(roomId);
+                } else {
+                    // Actualizar host si el dueño se fue (comparando nombres)
+                    if (!room.players.stream().anyMatch(p -> p.name.equals(room.hostName) && !p.isBot)) {
+                        room.hostName = room.players.stream().filter(p -> !p.isBot).findFirst().map(p -> p.name).orElse(room.players.get(0).name);
+                    }
+                    broadcast(room, "room-update", room.players);
+                }
+            }
+            playerRooms.remove(session.getId());
+            
+            if (room.isPublic && !room.inGame) {
+                broadcastPublicRooms();
+            }
         }
     }
 
@@ -475,7 +554,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 for (Player p : room.players) {
                     Map<String, Object> assignment = new HashMap<>();
                     assignment.put("playerName", p.name);
-                    assignment.put("skillIndex", random.nextInt(10));
+                    assignment.put("skillIndex", random.nextInt(8));
                     assignments.add(assignment);
                 }
 
@@ -485,60 +564,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
                 broadcast(room, "skill-roulette", rouletteData);
             }
-
-            // --- Server-side Synchronized Weather ---
-            if (room.turnCount % 4 == 0) {
-                String[] types = {"clear", "windy", "storm", "fog"};
-                String type = types[random.nextInt(types.length)];
-                room.weather.put("type", type);
-                double windX = 0;
-                double windY = 0;
-                if ("windy".equals(type)) {
-                    windX = (random.nextDouble() - 0.5) * 1.5;
-                    room.weather.put("title", "🍃 VIENTO FUERTE");
-                    room.weather.put("icon", "🍃");
-                } else if ("storm".equals(type)) {
-                    windY = random.nextDouble() * 0.8;
-                    room.weather.put("title", "⛈️ TORMENTA");
-                    room.weather.put("icon", "⛈️");
-                } else if ("fog".equals(type)) {
-                    room.weather.put("title", "🌫️ NIEBLA");
-                    room.weather.put("icon", "🌫️");
-                } else {
-                    room.weather.put("title", "☀️ DESPEJADO");
-                    room.weather.put("icon", "☀️");
-                }
-                room.weather.put("windX", windX);
-                room.weather.put("windY", windY);
-            }
-
-            // --- Server-side Synchronized Events ---
-            if (room.turnCount % 6 == 0 && room.globalEvent == null) {
-                String[] eventTypes = {"solar-storm", "arms-treaty", "spy-satellite", "resource-crisis", "radio-jamming", "meteor-shower"};
-                String type = eventTypes[random.nextInt(eventTypes.length)];
-                Map<String, Object> ev = new HashMap<>();
-                ev.put("type", type);
-                ev.put("turnsActive", 1);
-                
-                // Set titles/icons
-                if ("solar-storm".equals(type)) { ev.put("title", "☀️ TORMENTA SOLAR"); ev.put("icon", "☀️"); ev.put("turnsActive", 2); }
-                else if ("arms-treaty".equals(type)) { ev.put("title", "🕊️ TRATADO DE NO PROLIFERACIÓN"); ev.put("icon", "🕊️"); }
-                else if ("radio-jamming".equals(type)) { ev.put("title", "📡 INTERFERENCIA DE RADIO"); ev.put("icon", "📡"); }
-                else if ("meteor-shower".equals(type)) { ev.put("title", "☄️ LLUVIA DE METEORITOS"); ev.put("icon", "☄️"); }
-
-                room.globalEvent = ev;
-            } else if (room.globalEvent != null) {
-                int turns = (int) room.globalEvent.get("turnsActive");
-                turns--;
-                if (turns <= 0) room.globalEvent = null;
-                else room.globalEvent.put("turnsActive", turns);
-            }
-
-            Map<String, Object> turnData = new HashMap<>(data);
-            turnData.put("weather", room.weather);
-            turnData.put("globalEvent", room.globalEvent);
-            
-            broadcast(room, "turn-advanced", turnData);
         }
     }
 

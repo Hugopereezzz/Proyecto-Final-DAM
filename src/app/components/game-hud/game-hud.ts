@@ -3,17 +3,20 @@ import { City, GamePhase } from '../../models/game.models';
 import { AuthService } from '../../auth.service';
 import { GameService } from '../../game.service';
 import { inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-game-hud',
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './game-hud.html',
   styleUrl: './game-hud.css'
 })
 export class GameHudComponent {
   public authService = inject(AuthService);
   public gameService = inject(GameService);
+  getFactionName(id?: number): string {
+    if (id == null || id < 0) return 'N/A';
+    return this.gameService.FACTIONS[id]?.name || 'N/A';
+  }
 
   cities             = input.required<City[]>();
   gamePhase          = input.required<GamePhase>();
@@ -30,8 +33,4 @@ export class GameHudComponent {
   leaveGame    = output<void>();
 
   get Math() { return Math; }
-
-  getCityRank(city: City) {
-    return this.gameService.getRank(city.xp || 0);
-  }
 }

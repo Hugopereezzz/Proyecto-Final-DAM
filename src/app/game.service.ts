@@ -1,57 +1,115 @@
 import { Injectable } from '@angular/core';
 import {
   Building, City, Missile, Explosion, Particle, Star,
-  GameState, GamePhase, WorldEvent, WorldEventType,
-  Weather, WeatherType, EmojiPing
+  GameState, GamePhase
 } from './models/game.models';
 import { User } from './auth.service';
-
 
 @Injectable({ providedIn: 'root' })
 export class GameService {
   private nextMissileId = 0;
   private canvasWidth = 0;
   private canvasHeight = 0;
-
-  // Continent passive bonuses definitions
-  readonly continentPassives = [
-    { name: 'NORAD', icon: '🛡️', desc: '+20% éxito de intercepción', colorHex: '#00e5ff' },
-    { name: 'Escudo de Hierro', icon: '⚔️', desc: '+25% salud inicial', colorHex: '#ff4081' },
-    { name: 'Selva Densa', icon: '🌲', desc: 'Misiles viajan en modo sigilo automático', colorHex: '#76ff03' },
-    { name: 'Recursos Estratégicos', icon: '💰', desc: '+50% créditos por edificio destruido', colorHex: '#ffab40' },
-    { name: 'Isla Bastión', icon: '🏝️', desc: '+15 munición inicial', colorHex: '#aa00ff' },
-    { name: 'Base de Hielo', icon: '❄️', desc: '+30% salud máxima', colorHex: '#eceff1' },
-  ];
-
-  // World event pool
-  private readonly worldEvents: WorldEvent[] = [
-    { type: 'solar-storm',    title: '☀️ TORMENTA SOLAR',         description: 'Radar offline — las barras de vida enemigas son invisibles durante 2 turnos.', icon: '☀️', turnsActive: 2 },
-    { type: 'arms-treaty',    title: '🕊️ TRATADO DE NO PROLIFERACIÓN', description: 'Misiles nucleares bloqueados esta ronda.', icon: '🕊️', turnsActive: 1 },
-    { type: 'spy-satellite',  title: '🛰️ SATÉLITE ESPÍA',          description: 'La trayectoria del próximo misil enemigo es visible para todos.', icon: '🛰️', turnsActive: 1 },
-    { type: 'resource-crisis',title: '⚡ CRISIS DE RECURSOS',      description: 'Todos los jugadores pierden 5 de munición. ¡Actúa rápido!', icon: '⚡', turnsActive: 1 },
-    { type: 'radio-jamming',  title: '📡 INTERFERENCIA DE RADIO', description: 'El sistema de puntería está fallando. El radar tiembla.', icon: '📡', turnsActive: 1 },
-    { type: 'meteor-shower',  title: '☄️ LLUVIA DE METEORITOS', description: 'Impactos aleatorios en todo el mapa. ¡Cúbrete!', icon: '☄️', turnsActive: 1 },
-  ];
-
-  private readonly weatherPool: Weather[] = [
-    { type: 'clear', title: '☀️ DESPEJADO', description: 'Condiciones óptimas.', icon: '☀️', windX: 0, windY: 0 },
-    { type: 'windy', title: '🍃 VIENTO FUERTE', description: 'Vientos laterales afectan la trayectoria.', icon: '🍃', windX: 0.15, windY: 0 },
-    { type: 'storm', title: '⛈️ TORMENTA', description: 'Turbulencia severa.', icon: '⛈️', windX: 0, windY: 0.1 },
-    { type: 'fog',   title: '🌫️ NIEBLA', description: 'Visibilidad reducida.', icon: '🌫️', windX: 0, windY: 0 },
-  ];
+  private currentRoomId: string = '';
 
   readonly countryLocations = [
     { name: 'Norteamérica', x: 260, y: 190, color: '#00e5ff', accent: '#00b8d4' },
     { name: 'Eurasia', x: 860, y: 180, color: '#ff4081', accent: '#f50057' },
     { name: 'Sudamérica', x: 380, y: 500, color: '#76ff03', accent: '#64dd17' },
-    { name: 'África', x: 650, y: 420, color: '#ffab40', accent: '#ff9100' },
-    { name: 'Oceanía', x: 1000, y: 550, color: '#aa00ff', accent: '#d500f9' },
-    { name: 'Antártida', x: 740, y: 520, color: '#eceff1', accent: '#cfd8dc' }
+    { name: 'África', x: 650, y: 420, color: '#ffab40', accent: '#ff9100' }
+  ];
+  
+  readonly FACTIONS = [
+    {
+      id: 0,
+      name: 'Legión Roja',
+      icon: '🟥',
+      description: 'Guerra total y fuerza bruta.',
+      passive: 'Tus misiles quitan un 50% más de vida.',
+      contra: 'Tu base tiene un 20% menos de vida.',
+      color: '#ff4444'
+    },
+    {
+      id: 1,
+      name: 'Nexo Zafiro',
+      icon: '🟦',
+      description: 'Maestros de la interceptación.',
+      passive: 'Interceptar te cuesta 1 misil (en lugar de 2).',
+      contra: 'Tus ataques quitan un 20% menos de vida.',
+      color: '#4444ff'
+    },
+    {
+      id: 2,
+      name: 'Banco Oro',
+      icon: '🟨',
+      description: 'Acumulación de recursos masiva.',
+      passive: 'Empiezas con 75 misiles (en lugar de 50).',
+      contra: 'Si un misil te impacta, pierdes 5 misiles extra.',
+      color: '#ffcc00'
+    },
+    {
+      id: 3,
+      name: 'Sindicato Umbra',
+      icon: '🟪',
+      description: 'Piratería y robo de suministros.',
+      passive: 'Si interceptas con éxito, robas 2 misiles al atacante.',
+      contra: 'Tu defensa cuesta 3 misiles (en lugar de 2).',
+      color: '#aa44ff'
+    },
+    {
+      id: 4,
+      name: 'Orden Esmeralda',
+      icon: '🟩',
+      description: 'Conversión de energía cinética.',
+      passive: 'Si recibes un impacto, recuperas 6 misiles.',
+      contra: 'Atacar te cuesta 3 misiles (en lugar de 1).',
+      color: '#44ff44'
+    },
+    {
+      id: 5,
+      name: 'Forja Volcánica',
+      icon: '🟧',
+      description: 'Tecnología de inhabilitación.',
+      passive: 'Si tu misil impacta, bloqueas la lanzadera enemiga 1 turno.',
+      contra: 'Atacar te cuesta 5 misiles.',
+      color: '#ff8800'
+    },
+    {
+      id: 6,
+      name: 'Tecnocracia Blanca',
+      icon: '⬜',
+      description: 'Producción en cadena automatizada.',
+      passive: 'Ganas 2 misiles cada vez que termina una ronda.',
+      contra: 'Solo puedes defenderte de un ataque por ronda.',
+      color: '#eeeeee'
+    },
+    {
+      id: 7,
+      name: 'Alianza Cobalto',
+      icon: '⬛',
+      description: 'Justicia reactiva extrema.',
+      passive: 'Daño Doble contra quienes te hayan atacado esta ronda.',
+      contra: 'No puedes atacar a quienes no te hayan atacado antes.',
+      color: '#333333'
+    }
   ];
 
-  initGame(canvasWidth: number, canvasHeight: number, players: any[], currentUserStats: User | null): GameState {
+  readonly SKILLS = [
+    { name: 'Dron Centinela', desc: 'Interceptación automática.' },
+    { name: 'Suministro', desc: 'Recuperas vida y misiles.' },
+    { name: 'Carga Nuclear', desc: 'Gran radio de explosión.' },
+    { name: 'Sigilo', desc: 'Misil indetectable.' },
+    { name: 'Pulso EMP', desc: 'Bloquea defensas enemigas.' },
+    { name: 'Sabotaje', desc: 'Robas misiles enemigos.' },
+    { name: 'Hipersónico', desc: 'Misil ultra rápido.' },
+    { name: 'Golpe Espejo', desc: 'Lanza dos misiles.' }
+  ];
+
+
+  initGame(canvasWidth: number, canvasHeight: number, players: any[], currentUserStats: User | null, roomId: string): GameState {
     this.canvasWidth = canvasWidth;
     this.canvasHeight = canvasHeight;
+    this.currentRoomId = roomId || 'default';
     this.nextMissileId = 0;
 
     const cities = this.createCities(players, currentUserStats);
@@ -68,100 +126,85 @@ export class GameService {
       phase: 'aiming',
       winner: null,
       turnNumber: 1,
-      globalEvent: null,
-      weather: { ...this.weatherPool[0] },
       screenShake: 0,
-      activeEmojis: [],
-      revengeUsed: {}
+      weather: { type: 'clear', icon: '☀️', title: 'Cielo Despejado', windX: 0, windY: 0 },
+      craters: [],
+      activeEmojis: []
     };
   }
 
   private createCities(players: any[], currentUserStats: User | null): City[] {
     const cities: City[] = [];
+    
+    // Seeded Random based on roomId to ensure all clients assign the same continents
+    const seed = (this.currentRoomId || 'default').split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+    const rng = () => {
+      const x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    };
+
+    const continentIndices = [0, 1, 2, 3];
+    // Simple Fisher-Yates with seeded rng
+    for (let i = continentIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [continentIndices[i], continentIndices[j]] = [continentIndices[j], continentIndices[i]];
+    }
 
     for (let i = 0; i < players.length; i++) {
       const p = players[i];
       const isMe = currentUserStats && p.name === currentUserStats.username;
       
-      const continentIdx = (p.continentIndex != null && p.continentIndex >= 0) 
-                           ? p.continentIndex 
-                           : (i % this.countryLocations.length);
-                           
+      // Use the randomized unique index
+      const continentIdx = continentIndices[i % continentIndices.length];
+                            
       const loc = this.countryLocations[continentIdx];
-      const buildings = this.createBuildings(loc.x, loc.y, i * 1000);
+      const buildings = this.createBuildings(loc.x, loc.y);
+
       
-      let baseHealth = buildings.reduce((sum, b) => sum + (b.healthValue || 0), 0);
+      const factionId = p.factionId ?? 0;
+      
+      let baseHealth = 500;
       let baseAmmo = 50;
 
-      // Apply upgrade bonuses for the local player
+      // Faction: Legión Roja (Contra: -20% Health)
+      if (factionId === 0) baseHealth *= 0.8;
+      // Faction: Banco Oro (Passive: +25 Ammo)
+      if (factionId === 2) baseAmmo = 75;
+
       if (isMe && currentUserStats) {
         baseHealth *= (1 + (currentUserStats.healthLevel * 0.1));
         baseAmmo += (currentUserStats.ammoLevel * 5);
       }
 
-      // ─── Continent Passive Bonuses ─────────────────────────────────────
-      // Eurasia/Antártida: health bonus
-      if (continentIdx === 1) baseHealth *= 1.25;
-      if (continentIdx === 5) baseHealth *= 1.30;
-      // Oceanía: ammo bonus
-      if (continentIdx === 4) baseAmmo += 15;
-      // Sudamérica/Africa: handled in damage/launch
-
       cities.push({
         id: (p.cityId !== undefined && p.cityId !== null) ? p.cityId : i,
-        name: loc.name,
+        name: p.name,
         x: loc.x,
         y: loc.y,
-        health: Math.round(baseHealth),
-        maxHealth: Math.round(baseHealth),
+        health: baseHealth,
+        maxHealth: baseHealth,
         color: loc.color,
         accentColor: loc.accent,
         buildings,
         isAlive: true,
         ammo: baseAmmo,
-        continentIndex: continentIdx,
         statusEffects: [],
         activeSkills: [],
-        missileSkin: p.missileSkin || 'default',
-        xp: p.xp || 0
+        factionId: factionId
       });
     }
     return cities;
   }
 
-  private pseudoRand(seed: number): number {
-    let x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  }
-
-  private createBuildings(centerX: number, centerY: number, seedBase: number): Building[] {
+  private createBuildings(centerX: number, centerY: number): Building[] {
     const buildings: Building[] = [];
-    const buildingCount = 20;
-
-    for (let i = 0; i < buildingCount; i++) {
-      let sd = seedBase + i * 10;
-      const radius = 25 + this.pseudoRand(sd) * 60;
-      const angle = this.pseudoRand(sd + 1) * Math.PI * 2;
-      
-      const bx = centerX + Math.cos(angle) * radius;
-      const by = centerY + Math.sin(angle) * radius;
-
-      const hue = 200 + Math.floor(this.pseudoRand(sd + 3) * 60);
-      const color = `hsl(${hue}, 80%, 60%)`;
-
+    for (let i = 0; i < 15; i++) {
+      const angle = (i / 15) * Math.PI * 2;
+      const dist = 30 + Math.random() * 40;
       buildings.push({
-        x: bx,
-        y: by,
-        width: 8,
-        height: 8,
-        depth: 0,
-        color,
-        sideColor: color,
-        topColor: color,
-        healthValue: 25,
-        windows: [],
-        destroyed: false,
-        type: 'base'
+        x: centerX + Math.cos(angle) * dist,
+        y: centerY + Math.sin(angle) * dist,
+        width: 8, height: 8, color: '#00e5ff', windows: [], destroyed: false, type: 'base'
       });
     }
     return buildings;
@@ -183,19 +226,19 @@ export class GameService {
 
   launchMissile(state: GameState, fromCityId: number, targetX: number, targetY: number, elapsedMs: number = 0): Missile | null {
     const city = state.cities.find(c => c.id === fromCityId);
-    if (!city || city.ammo <= 0) return null;
-    
-    // Block nuclear under arms treaty
-    if (state.globalEvent?.type === 'arms-treaty' && city.activeSkills.includes('double-damage')) {
-      return null;
-    }
+    if (!city) return null;
 
-    city.ammo -= 1;
+    // Faction: Attack Costs
+    let attackCost = 1;
+    if (city.factionId === 4) attackCost = 3; // Orden Esmeralda
+    if (city.factionId === 5) attackCost = 5; // Forja Volcánica
+
+    if (city.ammo < attackCost) return null;
+    city.ammo -= attackCost;
     
-    const hasHyper   = city.activeSkills.includes('hyper-speed');
-    const hasStealth = city.activeSkills.includes('stealth') || city.continentIndex === 2; // Sudamérica passive
+    const hasHyper = city.activeSkills.includes('hyper-speed');
+    const hasStealth = city.activeSkills.includes('stealth');
     const hasNuclear = city.activeSkills.includes('double-damage');
-    const hasCluster = city.activeSkills.includes('cluster-missile');
 
     let baseSpeed = 0.0083; 
     if (hasHyper) baseSpeed = 0.03;
@@ -219,10 +262,7 @@ export class GameService {
       active: true,
       hitSuccess: true,
       isStealth: hasStealth,
-      isNuclear: hasNuclear,
-      isCluster: hasCluster,
-      isSplit: false,
-      skin: city.missileSkin || 'default'
+      isNuclear: hasNuclear
     };
 
     state.missiles.push(missile);
@@ -231,11 +271,6 @@ export class GameService {
       city.statusEffects = city.statusEffects.filter(e => e.type !== 'double-shot');
       city.activeSkills = city.statusEffects.map(e => e.type);
       this.launchMissile(state, fromCityId, targetX + 40, targetY, elapsedMs);
-    }
-
-    if (city.activeSkills.includes('cluster-missile')) {
-      city.statusEffects = city.statusEffects.filter(e => e.type !== 'cluster-missile');
-      city.activeSkills = city.statusEffects.map(e => e.type);
     }
 
     return missile;
@@ -270,9 +305,19 @@ export class GameService {
 
   launchDefensiveMissile(state: GameState, fromCityId: number, targetMissileId: number, hitSuccess: boolean = true, elapsedMs: number = 0): Missile | null {
     const city = state.cities.find(c => c.id === fromCityId);
-    if (!city || city.ammo < 1) return null;
+    if (!city || !city.isAlive) return null;
 
-    city.ammo -= 1;
+    // Faction: Tecnocracia Blanca (6) - Limit 1 defense per round
+    if (city.factionId === 6 && (city.defensesThisRound || 0) >= 1) return null;
+
+    // Faction: Defense Costs
+    let defenseCost = 2;
+    if (city.factionId === 1) defenseCost = 1; // Nexo Zafiro
+    if (city.factionId === 3) defenseCost = 3; // Sindicato Umbra
+
+    if (city.ammo < defenseCost) return null;
+    city.ammo -= defenseCost;
+    city.defensesThisRound = (city.defensesThisRound || 0) + 1;
 
     const targetMissile = state.missiles.find(m => m.id === targetMissileId);
     
@@ -315,29 +360,19 @@ export class GameService {
 
     for (const city of state.cities) {
       if (city.isAlive && city.activeSkills.includes('auto-defense') && !city.activeSkills.includes('no-defense')) {
-        // Norteamérica passive: +20% intercept chance
-        const interceptBonus = city.continentIndex === 0 ? 0.2 : 0;
         const incoming = state.missiles.find(m => 
           m.active && !m.isDefensive && !m.isStealth &&
           Math.hypot(m.currentX - city.x, m.currentY - city.y) < 300 &&
           !state.missiles.some(dm => dm.isDefensive && dm.targetMissileId === m.id)
         );
         if (incoming) {
-          // Use intercept bonus for auto-defense from Norteamérica
-          const hitChance = Math.random() + interceptBonus;
-          this.launchDefensiveMissile(state, city.id, incoming.id, hitChance > 0.5, 0);
+          this.launchDefensiveMissile(state, city.id, incoming.id, true, 0);
         }
       }
     }
 
     for (const missile of state.missiles) {
       if (!missile.active) continue;
-
-      // Apply weather effects (wind)
-      if (!missile.isDefensive) {
-        missile.targetX += state.weather.windX * dtFactor;
-        missile.targetY += state.weather.windY * dtFactor;
-      }
 
       missile.trail.forEach(t => t.alpha *= 0.95);
       missile.trail = missile.trail.filter(t => t.alpha > 0.1);
@@ -354,6 +389,17 @@ export class GameService {
             if (missile.hitSuccess) {
               target.active = false;
               this.createExplosion(state, target.currentX, target.currentY, '#ffffff', true);
+              
+              // Faction: Sindicato Umbra (3) - Rob 2 missiles on successful intercept
+              const interceptorCity = state.cities.find(c => c.id === missile.fromCityId);
+              if (interceptorCity && interceptorCity.factionId === 3) {
+                const attacker = state.cities.find(c => c.id === target.fromCityId);
+                if (attacker) {
+                  const stolen = Math.min(attacker.ammo, 2);
+                  attacker.ammo -= stolen;
+                  interceptorCity.ammo += stolen;
+                }
+              }
             } else {
               this.createExplosion(state, missile.currentX, missile.currentY, '#aaaaaa', true);
             }
@@ -380,28 +426,6 @@ export class GameService {
 
       missile.currentX = missile.startX + dx * t;
       missile.currentY = missile.startY + dy * t;
-      
-      // Cluster Missile Split Logic
-      if (missile.isCluster && !missile.isSplit && t >= 0.5) {
-        missile.active = false;
-        // Create 3 sub-missiles
-        for (let i = -1; i <= 1; i++) {
-          const subMissile: Missile = {
-            ...missile,
-            id: this.nextMissileId++,
-            isSplit: true,
-            isCluster: false,
-            startX: missile.currentX,
-            startY: missile.currentY,
-            targetX: missile.targetX + i * 40,
-            targetY: missile.targetY,
-            progress: 0,
-            speed: missile.speed * 1.5,
-            trail: []
-          };
-          state.missiles.push(subMissile);
-        }
-      }
 
       missile.trail.push({ x: missile.currentX, y: missile.currentY, alpha: 1 });
 
@@ -411,16 +435,6 @@ export class GameService {
       }
     }
     state.missiles = state.missiles.filter(m => m.active || m.trail.length > 0);
-  }
-
-  addEmojiPing(state: GameState, cityId: number, emoji: string): void {
-    state.activeEmojis.push({
-      id: Date.now(),
-      cityId,
-      emoji,
-      startTime: Date.now(),
-      duration: 3000
-    });
   }
 
   private createExplosion(state: GameState, x: number, y: number, color: string, isSmall: boolean, missileId?: number): void {
@@ -445,7 +459,7 @@ export class GameService {
     state.explosions.push({
       x, y,
       radius: 0,
-      maxRadius: isSmall ? 30 : (isNuclear ? 150 : 60),
+      maxRadius: isSmall ? 30 : (isNuclear ? 200 : 100), // Increased radius visuals
       alpha: 1,
       color,
       particles,
@@ -455,28 +469,10 @@ export class GameService {
       wasIntercepted: false,
       damageApplied: false
     });
-
-    if (!isSmall) {
-      state.screenShake = isNuclear ? 15 : 6;
-    }
   }
 
   updateExplosions(state: GameState, deltaTime: number): void {
     const dtFactor = deltaTime / 16.6;
-
-    if (state.screenShake > 0) {
-      state.screenShake -= 0.5 * dtFactor;
-      if (state.screenShake < 0) state.screenShake = 0;
-    }
-
-    state.activeEmojis = state.activeEmojis.filter(e => Date.now() - e.startTime < e.duration);
-
-    // Hazard: Meteor Shower (Only while missiles are flying)
-    if (state.globalEvent?.type === 'meteor-shower' && state.phase === 'defending' && Math.random() < 0.04 * dtFactor) {
-      const mx = Math.random() * this.canvasWidth;
-      const my = (Math.random() * 0.4 + 0.5) * this.canvasHeight; 
-      this.createExplosion(state, mx, my, '#ff5500', true);
-    }
 
     for (const exp of state.explosions) {
       if (!exp.active) continue;
@@ -485,7 +481,7 @@ export class GameService {
 
       if (exp.isCityImpact && !exp.wasIntercepted && !exp.damageApplied && exp.alpha <= 0.6) {
         exp.damageApplied = true;
-        this.applyDamage(state, exp.x, exp.y);
+        this.applyDamage(state, exp.x, exp.y, exp.missileId);
       }
 
       for (const p of exp.particles) {
@@ -511,52 +507,69 @@ export class GameService {
     state.floatingRewards = state.floatingRewards.filter(r => r.alpha > 0);
   }
 
-  private applyDamage(state: GameState, hitX: number, hitY: number): void {
-    const explosionRadius = 25;
+  private applyDamage(state: GameState, hitX: number, hitY: number, missileId?: number): void {
+    const factionRadius = 100; // Radius where faction takes damage
+    const missile = state.missiles.find(m => m.id === missileId);
+    const isNuclear = missile?.isNuclear;
 
     for (const city of state.cities) {
       if (!city.isAlive) continue;
 
-      let damage = 0;
-      for (const b of city.buildings) {
-        if (b.destroyed) continue;
+      const dist = Math.hypot(hitX - city.x, hitY - city.y);
+      if (dist < factionRadius) {
+        const attacker = state.missiles.find(m => m.id === missileId);
+        const attackerCity = state.cities.find(c => c.id === attacker?.fromCityId);
 
-        const dist = Math.hypot(hitX - b.x, hitY - b.y);
-        if (dist < explosionRadius + 10) {
-          b.destroyed = true;
-          damage += b.healthValue || 25;
-          
-          // África passive: +50% loot
-          const lootMult = city.continentIndex === 3 ? 0 : 1; // Africa doesn't generate loot FOR attackers
-          // Actually: the ATTACKER city needs to benefit — but we don't know the attacker here.
-          // Instead Africa gets +50% credits at end via a separate path.
-          state.lootEarned += 1;
-          state.floatingRewards.push({
-            id: Date.now() + Math.random(),
-            x: b.x,
-            y: b.y,
-            value: '+1 CC',
-            alpha: 1,
-            active: true,
-            yOffset: 0
-          });
+        // Faction: Track attacks for Alianza Cobalto
+        if (attackerCity) {
+          city.attackedBy = city.attackedBy || [];
+          if (!city.attackedBy.includes(attackerCity.id)) city.attackedBy.push(attackerCity.id);
         }
-      }
 
-      if (damage === 0) {
-        const dist = Math.abs(hitX - city.x);
-        if (dist < 30) damage = 10;
-      }
+        // Calculate fixed damage: 50 base, 100 if nuclear
+        let damage = isNuclear ? 100 : 50;
+        
+        // Faction: Legión Roja (0) - +50% Damage
+        if (attackerCity?.factionId === 0) damage *= 1.5;
+        // Faction: Nexo Zafiro (1) - -20% Damage
+        if (attackerCity?.factionId === 1) damage *= 0.8;
+        // Faction: Alianza Cobalto (7) - Double damage if target attacked me
+        if (attackerCity?.factionId === 7 && attackerCity.attackedBy?.includes(city.id)) {
+          damage *= 2;
+        }
 
-      if (damage > 0) {
-        const prevHealth = city.health;
         city.health = Math.max(0, city.health - damage);
+
+        // Faction: Banco Oro (2) - Extra ammo loss
+        if (city.factionId === 2) city.ammo = Math.max(0, city.ammo - 5);
+        // Faction: Orden Esmeralda (4) - Recover 6 ammo if hit
+        if (city.factionId === 4) city.ammo += 6;
+        // Faction: Forja Volcánica (5) - Disable next turn
+        if (attackerCity?.factionId === 5) {
+          city.statusEffects.push({ type: 'disabled', turns: 1 });
+          city.activeSkills = city.statusEffects.map(e => e.type);
+        }
+
+        // Visual destruction of buildings in the impact area (purely visual/loot)
+        for (const b of city.buildings) {
+          if (!b.destroyed && Math.hypot(hitX - b.x, hitY - b.y) < (isNuclear ? 60 : 35)) {
+            b.destroyed = true;
+            state.lootEarned += 1;
+            state.floatingRewards.push({
+              id: Date.now() + Math.random(),
+              x: b.x,
+              y: b.y,
+              value: '+1 CC',
+              alpha: 1,
+              active: true,
+              yOffset: 0
+            });
+          }
+        }
+
         if (city.health <= 0) {
           city.isAlive = false;
           this.destroyCityBuildings(city);
-        } else if (prevHealth > city.maxHealth * 0.25 && city.health <= city.maxHealth * 0.25) {
-          // Trigger revenge alert — handled by app.ts listener
-          (state as any).__revengeAvailable = city.id;
         }
       }
     }
@@ -584,7 +597,7 @@ export class GameService {
     return null;
   }
 
-  advanceTurn(state: GameState, nextIndex?: number, nextCityId?: number, weather?: any, globalEvent?: any): void {
+  advanceTurn(state: GameState, nextIndex?: number, nextCityId?: number): void {
     let next: number;
 
     if (nextCityId !== undefined && nextCityId !== null) {
@@ -607,30 +620,27 @@ export class GameService {
       }
     }
     
+    const isNewRound = next < state.currentPlayerIndex;
+    
     state.currentPlayerIndex = next;
     state.turnNumber++;
 
-    // ─── Synchronized World Events (from server) ──────────────────────────
-    if (globalEvent) {
-      state.globalEvent = { ...globalEvent };
-      // Immediate effects
-      if (globalEvent.type === 'resource-crisis') {
-        state.cities.forEach(c => { if (c.isAlive) c.ammo = Math.max(0, c.ammo - 5); });
+    if (isNewRound) {
+      for (const city of state.cities) {
+        // Faction: Tecnocracia Blanca (6) - +2 Ammo Round end
+        if (city.isAlive && city.factionId === 6) city.ammo += 2;
+        
+        // Faction: Alianza Cobalto (7) - Reset revenge list? 
+        // User says "en esta ronda", so yes, reset after round ends.
+        city.attackedBy = [];
+        city.defensesThisRound = 0;
       }
-    } else if (globalEvent === null) {
-      state.globalEvent = null;
     }
 
-    // Status effects cooldown
     for (const city of state.cities) {
       city.statusEffects.forEach(effect => effect.turns--);
       city.statusEffects = city.statusEffects.filter(e => e.turns > 0);
       city.activeSkills = city.statusEffects.map(e => e.type);
-    }
-
-    // ─── Synchronized Weather (from server) ────────────────────────────────
-    if (weather) {
-        state.weather = { ...weather };
     }
 
     state.phase = 'aiming';
@@ -638,41 +648,31 @@ export class GameService {
 
   applySkill(state: GameState, cityId: number, skillIndex: number): void {
     const city = state.cities.find(c => c.id === cityId);
-    if (!city) return;
+    if (!city || !city.isAlive) return;
 
     switch (skillIndex) {
-      case 0: // Skill 0 (Extra Life / Suministros)
-        city.health = Math.min(city.maxHealth, city.health + 250);
-        city.ammo += 15;
-        if (city.health > 0) city.isAlive = true;
-        this.repairCityBuildings(city, 4);
-        break;
-      case 1: city.statusEffects.push({ type: 'auto-defense', turns: 3 }); break;
+      case 0: city.statusEffects.push({ type: 'auto-defense', turns: 3 }); break;
+      case 1: city.health = Math.min(city.maxHealth, city.health + 20); city.ammo += 10; break;
       case 2: city.statusEffects.push({ type: 'double-damage', turns: 2 }); break;
       case 3: city.statusEffects.push({ type: 'stealth', turns: 2 }); break;
       case 4: state.cities.forEach(c => { if (c.id !== cityId) c.statusEffects.push({ type: 'no-defense', turns: 2 }); }); break;
       case 5: state.cities.forEach(c => { if (c.id !== cityId) { const theft = Math.min(c.ammo, 10); c.ammo -= theft; city.ammo += theft; } }); break;
       case 6: city.statusEffects.push({ type: 'hyper-speed', turns: 2 }); break;
       case 7: city.statusEffects.push({ type: 'double-shot', turns: 2 }); break;
-      case 8: // Repair
-        this.repairCityBuildings(city, 8);
-        break;
-      case 9: city.statusEffects.push({ type: 'cluster-missile', turns: 1 }); break;
     }
     city.activeSkills = city.statusEffects.map(e => e.type);
   }
 
-  private repairCityBuildings(city: City, amount: number): void {
-    const destroyed = city.buildings.filter(b => b.destroyed);
-    for (let i = 0; i < Math.min(destroyed.length, amount); i++) {
-        destroyed[i].destroyed = false;
-        city.health += destroyed[i].healthValue || 25;
-    }
-    city.health = Math.min(city.health, city.maxHealth);
-  }
-
   getTargetableCities(state: GameState): City[] {
-    return state.cities.filter(c => c.isAlive && c.id !== state.cities[state.currentPlayerIndex].id);
+    const me = state.cities[state.currentPlayerIndex];
+    const aliveEnemies = state.cities.filter(c => c.isAlive && c.id !== me.id);
+    
+    // Faction: Alianza Cobalto (7) - Can't attack unprovoked (unless 1vs1)
+    if (me.factionId === 7 && aliveEnemies.length > 1) {
+      return aliveEnemies.filter(c => me.attackedBy?.includes(c.id));
+    }
+    
+    return aliveEnemies;
   }
 
   getIncomingMissiles(state: GameState, cityId: number): Missile[] {
@@ -699,60 +699,5 @@ export class GameService {
     let y = target.y + Math.sin(angle) * distance;
 
     return { x, y };
-  }
-
-  /** Grants a free revenge super-missile when the city falls below 25% health for the first time. */
-  triggerRevengeMissile(state: GameState, cityId: number, targetX: number, targetY: number): Missile | null {
-    if (state.revengeUsed[cityId]) return null;
-    const city = state.cities.find(c => c.id === cityId);
-    if (!city || !city.isAlive) return null;
-
-    state.revengeUsed[cityId] = true;
-    city.ammo += 1; // temporarily grant ammo
-    const prev = city.activeSkills.slice();
-    city.activeSkills.push('double-damage'); // revenge shot is always nuclear
-    const m = this.launchMissile(state, cityId, targetX, targetY);
-    // Restore skills
-    city.activeSkills = prev;
-    return m;
-  }
-
-  /** Returns rank label based on XP */
-  getRank(xp: number): { label: string; icon: string; color: string; level: number; nextXP: number; progress: number } {
-    const thresholds = [
-      { xp: 5000, label: 'General de 5 Estrellas', icon: '⭐⭐⭐⭐⭐', color: '#FFD700', level: 6 },
-      { xp: 2500, label: 'Comandante Supremo',    icon: '⭐⭐⭐⭐',   color: '#C0C0C0', level: 5 },
-      { xp: 1000, label: 'Comandante',            icon: '⭐⭐⭐',     color: '#CD7F32', level: 4 },
-      { xp: 500,  label: 'Capitán',               icon: '⭐⭐',       color: '#76ff03', level: 3 },
-      { xp: 200,  label: 'Sargento',              icon: '⭐',         color: '#00e5ff', level: 2 },
-      { xp: 0,    label: 'Recluta',               icon: '🔰',         color: '#9ca3af', level: 1 }
-    ];
-
-    const current = thresholds.find(t => xp >= t.xp) || thresholds[thresholds.length-1];
-    const nextIdx = thresholds.indexOf(current) - 1;
-    const next = nextIdx >= 0 ? thresholds[nextIdx] : null;
-
-    let progress = 0;
-    if (next) {
-      const range = next.xp - current.xp;
-      const gained = xp - current.xp;
-      progress = Math.min(100, (gained / range) * 100);
-    } else {
-      progress = 100;
-    }
-
-    return { 
-      label: current.label, 
-      icon: current.icon, 
-      color: current.color, 
-      level: current.level,
-      nextXP: next ? next.xp : xp,
-      progress
-    };
-  }
-
-  /** Returns the Africa credit multiplier for a given city */
-  getAfricaCreditMultiplier(city: any): number {
-    return city?.continentIndex === 3 ? 1.5 : 1.0;
   }
 }

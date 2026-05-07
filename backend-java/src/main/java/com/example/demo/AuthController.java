@@ -30,9 +30,6 @@ public class AuthController {
         public int ammoLevel;
         public int speedLevel;
         public int alliedSupportCount;
-        public int wins;
-        public String missileSkin;
-        public int xp;
         
         public AuthResponse(User user, boolean success, String message) {
             this.success = success;
@@ -46,35 +43,41 @@ public class AuthController {
                 this.ammoLevel = user.getAmmoLevel();
                 this.speedLevel = user.getSpeedLevel();
                 this.alliedSupportCount = user.getAlliedSupportCount();
-                this.wins = user.getWins();
-                this.missileSkin = user.getMissileSkin();
-                this.xp = user.getXp();
             }
         }
     }
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody AuthRequest request) {
+        System.out.println("[AUTH] Intento de registro: " + (request != null ? request.username : "null"));
         if (request.username == null || request.username.trim().isEmpty() || request.password == null) {
             return ResponseEntity.badRequest().body(new AuthResponse(null, false, "Datos inválidos"));
         }
         
         Optional<User> existing = userRepository.findByUsername(request.username);
         if (existing.isPresent()) {
+            System.out.println("[AUTH] El usuario ya existe: " + request.username);
             return ResponseEntity.badRequest().body(new AuthResponse(null, false, "El usuario ya existe"));
         }
 
-        User newUser = new User(request.username, request.password);
-        userRepository.save(newUser);
-        return ResponseEntity.ok(new AuthResponse(newUser, true, "Registrado con éxito"));
+        try {
+            User newUser = new User(request.username, request.password);
+            userRepository.save(newUser);
+            System.out.println("[AUTH] Usuario registrado con éxito: " + request.username);
+            return ResponseEntity.ok(new AuthResponse(newUser, true, "Registrado con éxito"));
+        } catch (Exception e) {
+            System.err.println("[AUTH] Error al registrar usuario: " + e.getMessage());
+            return ResponseEntity.status(500).body(new AuthResponse(null, false, "Error interno al registrar"));
+        }
     }
+
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
         Optional<User> user = userRepository.findByUsername(request.username);
         
         if (user.isEmpty() || !user.get().getPassword().equals(request.password)) {
-            return ResponseEntity.status(401).body(new AuthResponse(null, false, "Credenciales inválidas"));
+            return ResponseEntity.status(401).body(new AuthResponse(null, false, "Usuario o contraseña inválidos"));
         }
 
         return ResponseEntity.ok(new AuthResponse(user.get(), true, "Inicio de sesión con éxito"));
@@ -93,7 +96,6 @@ public class AuthController {
         public String username;
         public String displayName;
         public String avatarBase64;
-        public String missileSkin;
     }
 
     @PostMapping("/update-profile")
@@ -112,9 +114,6 @@ public class AuthController {
         }
         if (request.avatarBase64 != null) {
             user.setAvatarBase64(request.avatarBase64);
-        }
-        if (request.missileSkin != null) {
-            user.setMissileSkin(request.missileSkin);
         }
 
         userRepository.save(user);

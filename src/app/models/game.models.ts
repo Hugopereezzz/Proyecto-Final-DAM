@@ -30,8 +30,19 @@ export interface City {
   activeSkills: string[];
   isBot?: boolean;
   afkCount?: number;
-  missileSkin?: string;
-  xp?: number;
+  factionId?: number;
+  defensesThisRound?: number;
+  attackedBy?: number[];
+}
+
+export interface Faction {
+  id: number;
+  name: string;
+  icon: string;
+  description: string;
+  passive: string;
+  contra: string;
+  color: string;
 }
 
 export interface Missile {
@@ -52,10 +63,7 @@ export interface Missile {
   hitSuccess?: boolean;
   isStealth?: boolean;
   isNuclear?: boolean;
-  isCluster?: boolean;
-  isSplit?: boolean;
   active: boolean;
-  skin?: string;
 }
 
 export interface Explosion {
@@ -91,36 +99,34 @@ export interface Star {
   twinkleSpeed: number;
 }
 
-export type GamePhase = 'auth' | 'setup' | 'aiming' | 'firing' | 'defending' | 'result' | 'gameover';
-
-export type WorldEventType = 'solar-storm' | 'arms-treaty' | 'spy-satellite' | 'resource-crisis' | 'radio-jamming' | 'meteor-shower' | null;
-
-export interface WorldEvent {
-  type: WorldEventType;
-  title: string;
-  description: string;
-  icon: string;
-  turnsActive: number;
+export interface Crater {
+  x: number;
+  y: number;
+  radius: number;
 }
 
-export type WeatherType = 'clear' | 'windy' | 'storm' | 'fog';
-
 export interface Weather {
-  type: WeatherType;
-  title: string;
-  description: string;
+  type: 'clear' | 'fog' | 'windy' | 'storm';
   icon: string;
+  title: string;
   windX: number;
   windY: number;
 }
 
+export interface GlobalEvent {
+  type: 'none' | 'solar-storm' | 'radio-jamming';
+  title: string;
+  duration: number;
+}
+
 export interface EmojiPing {
-  id: number;
   cityId: number;
   emoji: string;
   startTime: number;
   duration: number;
 }
+
+export type GamePhase = 'auth' | 'setup' | 'aiming' | 'firing' | 'defending' | 'result' | 'gameover';
 
 export interface FloatingReward {
   id: number;
@@ -143,9 +149,9 @@ export interface GameState {
   phase: GamePhase;
   winner: City | null;
   turnNumber: number;
-  globalEvent: WorldEvent | null;
+  screenShake: number;
   weather: Weather;
-  screenShake: number; // intensity
+  globalEvent?: GlobalEvent;
+  craters: Crater[];
   activeEmojis: EmojiPing[];
-  revengeUsed: { [cityId: number]: boolean };
 }

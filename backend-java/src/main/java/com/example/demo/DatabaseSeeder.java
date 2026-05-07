@@ -25,20 +25,16 @@ public class DatabaseSeeder implements CommandLineRunner {
             hugo.setDisplayName("Hugo");
             hugo.setCredits(500);
             hugo.setWins(10);
-            hugo.setXp(1200);
-            hugo.setOwnedSkins("default,fire");
 
             User ian = new User("ian", "1234");
             ian.setDisplayName("Ian");
             ian.setCredits(300);
             ian.setWins(5);
-            ian.setXp(600);
 
             User mario = new User("mario", "1234");
             mario.setDisplayName("Mario");
             mario.setCredits(150);
             mario.setWins(2);
-            mario.setXp(200);
 
             userRepository.saveAll(List.of(hugo, ian, mario));
             System.out.println("[SEEDER] Usuarios insertados: hugo, ian, mario.");
