@@ -48,12 +48,25 @@ export class SocketService {
   }
 
   // ============================================================
+  // UTILIDADES INTERNAS (Para que el código sea más simple)
+  // ============================================================
+
+  /**
+   * Método auxiliar para "escuchar" eventos del servidor de forma sencilla.
+   * Transforma un evento de Socket.io en un Observable de Angular.
+   */
+  private escuchar<T>(evento: string): Observable<T> {
+    return new Observable<T>(observer => {
+      this.socket.on(evento, (data: T) => observer.next(data));
+    });
+  }
+
+  // ============================================================
   // CONEXIÓN / DESCONEXIÓN
   // ============================================================
 
   /**
-   * Conecta al servidor Socket.io e identifica al usuario.
-   * @param nombreUsuario Nombre del jugador a identificar.
+   * Conecta al servidor y le dice quién es el usuario.
    */
   conectar(nombreUsuario: string): void {
     if (!this.socket.connected) {
@@ -62,160 +75,63 @@ export class SocketService {
     }
   }
 
-  /**
-   * Desconecta al usuario del servidor Socket.io.
-   */
   desconectar(): void {
-    if (this.socket.connected) {
-      this.socket.disconnect();
-    }
+    if (this.socket.connected) this.socket.disconnect();
   }
 
-  /**
-   * Devuelve true si hay conexión activa con el servidor.
-   */
   estaConectado(): boolean {
     return this.socket.connected;
   }
 
-  /**
-   * Devuelve el ID de socket del cliente actual.
-   */
   getMiSocketId(): string {
     return this.socket.id ?? '';
   }
 
   // ============================================================
-  // GESTIÓN DE SALAS
+  // GESTIÓN DE SALAS (Crear, Unirse, Estado)
   // ============================================================
 
-  /**
-   * Emite la petición de crear una sala al servidor.
-   * @param nombre Nombre de la sala.
-   * @param tipo 'publica' o 'privada'.
-   */
   crearSala(nombre: string, tipo: 'publica' | 'privada'): void {
     this.socket.emit('crear-sala', { nombre, tipo });
   }
 
-  /**
-   * Observable que se emite cuando el servidor confirma la creación de la sala.
-   * Devuelve el código único generado y el estado inicial de la sala.
-   */
-  onSalaCreada(): Observable<{ ok: boolean; codigo: string; sala: Sala }> {
-    return new Observable<{ ok: boolean; codigo: string; sala: Sala }>(observer => {
-      this.socket.on('sala-creada', (data: { ok: boolean; codigo: string; sala: Sala }) => observer.next(data));
-    });
-  }
+  onSalaCreada() { return this.escuchar<{ ok: boolean; codigo: string; sala: Sala }>('sala-creada'); }
 
-  /**
-   * Emite la petición de unirse a una sala usando su código.
-   * @param codigo Código único de la sala.
-   */
   unirseSala(codigo: string): void {
     this.socket.emit('unirse-sala', { codigo });
   }
 
-  /**
-   * Observable que se emite cuando el servidor confirma que el jugador se unió a la sala.
-   */
-  onSalaUnido(): Observable<{ ok: boolean; codigo: string; sala: Sala }> {
-    return new Observable<{ ok: boolean; codigo: string; sala: Sala }>(observer => {
-      this.socket.on('sala-unido', (data: { ok: boolean; codigo: string; sala: Sala }) => observer.next(data));
-    });
-  }
+  onSalaUnido() { return this.escuchar<{ ok: boolean; codigo: string; sala: Sala }>('sala-unido'); }
 
-  /**
-   * Observable que se emite cuando el estado de la sala cambia (jugador nuevo, jugador listo, etc.).
-   */
-  onSalaActualizada(): Observable<Sala> {
-    return new Observable<Sala>(observer => {
-      this.socket.on('sala-actualizada', (sala: Sala) => observer.next(sala));
-    });
-  }
+  onSalaActualizada() { return this.escuchar<Sala>('sala-actualizada'); }
 
-  /**
-   * Observable para errores relacionados con la sala (código incorrecto, sala llena, etc.).
-   */
-  onErrorSala(): Observable<{ mensaje: string }> {
-    return new Observable<{ mensaje: string }>(observer => {
-      this.socket.on('error-sala', (error: { mensaje: string }) => observer.next(error));
-    });
-  }
+  onErrorSala() { return this.escuchar<{ mensaje: string }>('error-sala'); }
 
-  /**
-   * Alterna el estado "Listo" del jugador en la sala actual.
-   */
-  cambiarListo(): void {
-    this.socket.emit('cambiar-listo');
-  }
+  cambiarListo(): void { this.socket.emit('cambiar-listo'); }
 
-  /**
-   * Emite la petición de salir de la sala actual.
-   */
-  salirSala(): void {
-    this.socket.emit('salir-sala');
-  }
+  salirSala(): void { this.socket.emit('salir-sala'); }
 
   // ============================================================
-  // SALAS PÚBLICAS
+  // SALAS PÚBLICAS (Lobby)
   // ============================================================
 
-  /**
-   * Solicita al servidor la lista actualizada de salas públicas.
-   */
-  pedirSalas(): void {
-    this.socket.emit('pedir-salas');
-  }
+  pedirSalas(): void { this.socket.emit('pedir-salas'); }
 
-  /**
-   * Observable que se emite cuando la lista de salas públicas se actualiza.
-   */
-  onSalasActualizadas(): Observable<SalaPublica[]> {
-    return new Observable<SalaPublica[]>(observer => {
-      this.socket.on('salas-actualizadas', (salas: SalaPublica[]) => observer.next(salas));
-    });
-  }
+  onSalasActualizadas() { return this.escuchar<SalaPublica[]>('salas-actualizadas'); }
 
   // ============================================================
-  // CHAT GLOBAL
+  // CHATS (Global y de Sala)
   // ============================================================
 
-  /**
-   * Envía un mensaje al chat global (visible para todos los usuarios).
-   * @param contenido Texto del mensaje.
-   */
   enviarMensajeGlobal(contenido: string): void {
     this.socket.emit('chat-global', { contenido });
   }
 
-  /**
-   * Observable que emite mensajes del chat global a medida que llegan.
-   */
-  onMensajeGlobal(): Observable<MensajeChat> {
-    return new Observable<MensajeChat>(observer => {
-      this.socket.on('mensaje-global', (msg: MensajeChat) => observer.next(msg));
-    });
-  }
+  onMensajeGlobal() { return this.escuchar<MensajeChat>('mensaje-global'); }
 
-  // ============================================================
-  // CHAT DE SALA
-  // ============================================================
-
-  /**
-   * Envía un mensaje al chat privado de la sala actual.
-   * @param contenido Texto del mensaje.
-   */
   enviarMensajeSala(contenido: string): void {
     this.socket.emit('chat-sala', { contenido });
   }
 
-  /**
-   * Observable que emite mensajes del chat de la sala.
-   */
-  onMensajeSala(): Observable<MensajeChat> {
-    return new Observable<MensajeChat>(observer => {
-      this.socket.on('mensaje-sala', (msg: MensajeChat) => observer.next(msg));
-    });
-  }
+  onMensajeSala() { return this.escuchar<MensajeChat>('mensaje-sala'); }
 }
