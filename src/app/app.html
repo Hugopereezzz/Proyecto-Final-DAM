@@ -1,42 +1,44 @@
-<div class="game-container" id="game-container" [attr.data-phase]="gamePhase()">
+@if (!isLoggedIn()) {
+  <app-login (loginSuccess)="onLoginSuccess($event)"></app-login>
+} @else {
+  <div class="game-container" id="game-container" [attr.data-phase]="gamePhase()">
 
-  <!-- 1. AUTH PHASE -->
-  @if (gamePhase() === 'auth') {
-  <app-login (loginSuccess)="refreshLeaderboard(); gamePhase.set('setup')" />
-  }
+    <!-- 2. SETUP / LOBBY PHASE -->
+    @if (gamePhase() === 'setup') {
+      <app-lobby [leaderboardRows]="leaderboardRows()" [roomPlayers]="roomPlayers()" [inRoom]="inRoom()"
+        [currentRoomId]="currentRoomId()" [currentRoomName]="currentRoomName()" [myCityId]="myCityId()"
+        (roomCreated)="currentRoomId.set($event.roomId); currentRoomName.set($event.roomName); myCityId.set($event.cityId); inRoom.set(true)"
+        (roomJoined)="currentRoomId.set($event.roomId); currentRoomName.set($event.roomName); myCityId.set($event.cityId); inRoom.set(true)"
+        (gameStarted)="gamePhase.set('aiming')" (leftRoom)="leaveGame()" (loggedOut)="logout()"
+        (refreshLeaderboard)="refreshLeaderboard()" />
+      
+      <!-- Optional: Include the new LobbyPrincipalComponent if needed, but for now we stick to the game-compatible one -->
+      <!-- <app-lobby-principal [username]="currentUser()"></app-lobby-principal> -->
+    }
 
-  <!-- 2. SETUP / LOBBY PHASE -->
-  @if (gamePhase() === 'setup') {
-  <app-lobby [leaderboardRows]="leaderboardRows()" [roomPlayers]="roomPlayers()" [inRoom]="inRoom()"
-    [currentRoomId]="currentRoomId()" [currentRoomName]="currentRoomName()" [myCityId]="myCityId()"
-    (roomCreated)="currentRoomId.set($event.roomId); currentRoomName.set($event.roomName); myCityId.set($event.cityId); inRoom.set(true)"
-    (roomJoined)="currentRoomId.set($event.roomId); currentRoomName.set($event.roomName); myCityId.set($event.cityId); inRoom.set(true)"
-    (gameStarted)="gamePhase.set('aiming')" (leftRoom)="leaveGame()" (loggedOut)="logout()"
-    (refreshLeaderboard)="refreshLeaderboard()" />
-  }
+    <!-- 3. GAME CANVAS -->
+    <canvas #gameCanvas class="game-canvas" (click)="onCanvasClick($event)"
+      [class.hidden]="gamePhase() === 'setup' || gamePhase() === 'auth'" id="game-canvas"></canvas>
 
-  <!-- 3. GAME CANVAS -->
-  <canvas #gameCanvas class="game-canvas" (click)="onCanvasClick($event)" (mousemove)="onCanvasMouseMove($event)"
-    [class.hidden]="gamePhase() === 'setup' || gamePhase() === 'auth'" id="game-canvas"></canvas>
+    <!-- 4. HUD OVERLAY -->
+    @if (gamePhase() !== 'setup' && gamePhase() !== 'auth') {
+    <app-game-hud [cities]="cities()" [gamePhase]="gamePhase()" [turnNumber]="turnNumber()" [turnTimer]="turnTimer()"
+      [currentPlayerName]="currentPlayerName()" [currentPlayerColor]="currentPlayerColor()" [isMyTurn]="isMyTurn()"
+      [canDefend]="canDefend()" [lootEarned]="state.lootEarned" (skipDefense)="skipDefense()"
+      (callAllies)="callAlliedSupport()" (leaveGame)="leaveGame()" />
+    }
 
-  <!-- 4. HUD OVERLAY -->
-  @if (gamePhase() !== 'setup' && gamePhase() !== 'auth') {
-  <app-game-hud [cities]="cities()" [gamePhase]="gamePhase()" [turnNumber]="turnNumber()" [turnTimer]="turnTimer()"
-    [currentPlayerName]="currentPlayerName()" [currentPlayerColor]="currentPlayerColor()" [isMyTurn]="isMyTurn()"
-    [canDefend]="canDefend()" [lootEarned]="state.lootEarned" (skipDefense)="skipDefense()"
-    (callAllies)="callAlliedSupport()" (leaveGame)="leaveGame()" />
-  }
+    <!-- 5. ROULETTE MODAL -->
+    @if (rouletteVisible()) {
+    <app-roulette [player]="roulettePlayer()" [displaySkill]="rouletteDisplaySkill()"
+      [skillDescription]="rouletteSkillDescription()" />
+    }
 
-  <!-- 5. ROULETTE MODAL -->
-  @if (rouletteVisible()) {
-  <app-roulette [player]="roulettePlayer()" [displaySkill]="rouletteDisplaySkill()"
-    [skillDescription]="rouletteSkillDescription()" />
-  }
+    <!-- 6. GAME OVER MODAL -->
+    @if (gamePhase() === 'gameover') {
+    <app-game-over [winner]="winner()" [endReason]="endReason()" [winBonus]="winBonus()" [lootEarned]="state.lootEarned"
+      [totalEarnings]="totalEarnings()" (playAgain)="returnToLobby()" />
+    }
 
-  <!-- 6. GAME OVER MODAL -->
-  @if (gamePhase() === 'gameover') {
-  <app-game-over [winner]="winner()" [endReason]="endReason()" [winBonus]="winBonus()" [lootEarned]="state.lootEarned"
-    [totalEarnings]="totalEarnings()" (playAgain)="returnToLobby()" />
-  }
-
-</div>
+  </div>
+}

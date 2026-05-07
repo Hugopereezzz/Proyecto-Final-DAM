@@ -1,4 +1,5 @@
 import { Component, ViewChild, ElementRef, signal, computed, AfterViewInit, OnDestroy, NgZone, HostListener, OnInit, inject } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 import { GameService } from './game.service';
 import { DrawService } from './draw.service';
 import { GameState, City, Missile, GamePhase } from './models/game.models';
@@ -10,11 +11,16 @@ import { LobbyComponent } from './components/lobby/lobby';
 import { GameHudComponent } from './components/game-hud/game-hud';
 import { RouletteComponent } from './components/roulette/roulette';
 import { GameOverComponent } from './components/game-over/game-over';
+import { LobbyPrincipalComponent } from './components/lobby-principal/lobby-principal';
 
+/**
+ * Clase principal de la aplicación.
+ * Gestiona si el usuario está en la pantalla de login o en el lobby.
+ */
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [LoginComponent, LobbyComponent, GameHudComponent, RouletteComponent, GameOverComponent],
+  imports: [RouterOutlet, LoginComponent, LobbyComponent, GameHudComponent, RouletteComponent, GameOverComponent, LobbyPrincipalComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -53,6 +59,13 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   showShop = signal(false);
   leaderboardRows = signal<AuthUser[]>([]);
 
+  // Título de la aplicación almacenado en un signal (reactivo)
+  protected readonly title = signal('ProyectoFinal');
+  // Estado de autenticación: indica si hay una sesión activa
+  isLoggedIn = signal(false);
+  // Almacena el nombre del usuario actualmente identificado
+  currentUser = signal('');
+
   private mouseX = 0; private mouseY = 0;
   private continentPaths: Path2D[] = [];
   private defenseUsed = false;
@@ -72,7 +85,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   private setupSubscriptions() {
     this.wsService.roomUpdate$.subscribe(players => this.roomPlayers.set(players));
     this.wsService.gameStarted$.subscribe(data => this.startGame(data.players));
-    this.wsService.missileLaunched$.subscribe(() => { this.state.phase = 'defending'; this.canDefend.set(true); this.defenseUsed = false; });
+    this.wsService.missileLaunched$.subscribe(() => { if(this.state) this.state.phase = 'defending'; this.canDefend.set(true); this.defenseUsed = false; });
     this.wsService.defenseLaunched$.subscribe(data => this.gameService.launchDefense(this.state, data.targetMissileId, data.fromCityId, data.hitSuccess));
     this.wsService.turnAdvanced$.subscribe(data => this.onTurnAdvanced(data));
     this.wsService.skillRoulette$.subscribe(data => this.handleRoulette(data.assignments));
@@ -107,8 +120,16 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // --- Input Handlers ---
-  handleCanvasClick(e: MouseEvent) {
-    if (this.state.phase === 'aiming' && this.isMyTurn()) {
+  @HostListener('mousemove', ['$event'])
+  onCanvasMouseMove(e: MouseEvent) {
+    if (!this.canvasRef) return;
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    this.mouseX = e.clientX - rect.left;
+    this.mouseY = e.clientY - rect.top;
+  }
+
+  onCanvasClick(e: MouseEvent) {
+    if (this.state && this.state.phase === 'aiming' && this.isMyTurn()) {
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
       const x = e.clientX - rect.left, y = e.clientY - rect.top;
       this.wsService.launchMissile(this.currentRoomId(), this.myCityId(), x, y);
@@ -123,11 +144,36 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  skipDefense() {
+    this.canDefend.set(false);
+  }
+
+  callAlliedSupport() {
+    // Placeholder for allied support logic
+  }
+
+  leaveGame() {
+    this.gamePhase.set('setup');
+    if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
+  }
+
+  logout() {
+    this.authService.logout();
+    this.isLoggedIn.set(false);
+    this.gamePhase.set('auth');
+  }
+
+  returnToLobby() {
+    this.gamePhase.set('setup');
+  }
+
   // --- Helpers ---
   private onTurnAdvanced(data: any) {
-    this.state.currentPlayerIndex = data.nextPlayerIndex;
-    this.state.turnNumber = data.turnNumber;
-    this.state.phase = 'aiming';
+    if (this.state) {
+      this.state.currentPlayerIndex = data.nextPlayerIndex;
+      this.state.turnNumber = data.turnNumber;
+      this.state.phase = 'aiming';
+    }
     this.turnNumber.set(data.turnNumber);
     this.turnTimer.set(30);
   }
@@ -167,4 +213,27 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     }
     this.animFrameId = requestAnimationFrame(() => this.gameLoop());
   }
+
+  /**
+   * Método disparado cuando el componente de Login emite un éxito.
+   * Actualiza el estado global de la aplicación para mostrar el Lobby.
+   * @param data Objeto con la información del usuario logueado.
+   */
+  onLoginSuccess(data: {username: string}) {
+    this.currentUser.set(data.username); // Guardamos el nombre
+    this.isLoggedIn.set(true);          // Cambiamos a modo "logueado"
+    this.gamePhase.set('setup');
+    this.refreshLeaderboard();
+  }
+
+  // Helper getters for template
+  currentPlayerName() { return this.state?.cities[this.state.currentPlayerIndex]?.name || 'Nadie'; }
+  currentPlayerColor() { return this.state?.cities[this.state.currentPlayerIndex]?.color || '#fff'; }
+  rouletteVisible() { return this.roulette().visible; }
+  roulettePlayer() { return this.roulette().player; }
+  rouletteDisplaySkill() { return 'Skill ' + this.roulette().skillIdx; }
+  rouletteSkillDescription() { return 'Descripción de la habilidad'; }
+  endReason() { return 'Juego Terminado'; }
+  winBonus() { return 100; }
+  totalEarnings() { return 500; }
 }
