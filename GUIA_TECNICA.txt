@@ -1,81 +1,43 @@
 ========================================================================
-    GUÍA TÉCNICA: MISSILE DEFENSE - CONTINENTES EN GUERRA
+    GUÍA TÉCNICA: CONTINENTES EN GUERRA (MISSILE DEFENSE)
 ========================================================================
 
-1. DESCRIPCIÓN DEL PROYECTO
+NOTA: Se ha generado una versión detallada con diagramas en GUIA_TECNICA.md.
+Consulte ese archivo para una visión profunda de la arquitectura.
+
+1. ARQUITECTURA GENERAL
 ------------------------------------------------------------------------
-Este proyecto es un videojuego multijugador táctico de defensa planetaria. 
-Los jugadores eligen un continente, gestionan defensas y lanzan misiles 
-para eliminar a los oponentes en tiempo real. 
+- Frontend: Angular (Motor de renderizado en Canvas API).
+- Backend: Java Spring Boot (Motor de sincronización WebSockets).
+- Bases de Datos: 
+    * MySQL: Persistencia de usuarios, niveles y créditos.
+    * MongoDB: Historial de partidas y analíticas de juego.
 
-Arquitectura:
-- Frontend: Angular (TypeScript, Canvas API)
-- Backend: Java Spring Boot 
-- Persistencia: MySQL (Datos de juego) y MongoDB (Estadísticas analíticas)
-- Comunicación: WebSockets con sistema de resiliencia.
-
-2. REQUISITOS DEL SISTEMA
+2. LÓGICA DE COMUNICACIÓN (WebSockets)
 ------------------------------------------------------------------------
-- Java 21 o superior.
-- Node.js y npm.
-- MySQL (vía XAMPP o Docker).
-- MongoDB (vía Docker o instalación local en puerto 27017).
+El servidor (GameWebSocketHandler.java) actúa como el cerebro de la red:
+- Gestiona salas (Rooms) y jugadores (Players).
+- Si un jugador se desconecta, se convierte automáticamente en BOT.
+- Valida turnos y lanza eventos globales (como la Ruleta de Habilidades).
+- Sincronización: Se usan timestamps del servidor para mitigar el lag.
 
-3. CONFIGURACIÓN AUTOMÁTICA DE LA BASE DE DATOS
+3. LÓGICA DE JUEGO (GameService.ts)
 ------------------------------------------------------------------------
-El sistema está diseñado para ser "Plug & Play". No necesitas crear 
-manualmente las tablas en phpMyAdmin.
+- Facciones: Cada facción tiene modificadores de daño y coste de munición.
+- Habilidades: Sistema de efectos de estado (statusEffects) que alteran
+  el comportamiento de los misiles (sigilo, velocidad, daño nuclear).
+- Colisiones: Calculadas mediante distancia euclidiana entre coordenadas.
 
-- Si usas XAMPP: Asegúrate de que MySQL esté activo. Al arrancar el 
-  backend, se creará automáticamente la base de datos 'continentes_db' 
-  y todas sus tablas (players, partidas).
-- Si usas Docker (RECOMENDADO): Abre una terminal en la raíz y ejecuta:
-  
-  > docker-compose up -d
-
-  Este comando descargará, creará y activará automáticamente MySQL y MongoDB 
-  sin que tengas que instalar nada más en tu ordenador.
-
-4. FUNCIONALIDADES TÉCNICAS (BACKEND)
+4. PERSISTENCIA DUAL
 ------------------------------------------------------------------------
-- Gestión de Usuarios: Registro y autenticación con guardado de perfiles 
-  en MySQL. Se guardan créditos, victorias, mejoras y skins compradas.
-- WebSocket resiliente: Sistema avanzado de comunicación que soporta:
-    * Reconexión automática con retroceso exponencial.
-    * Heartbeat (Ping/Pong) para evitar desconexiones por inactividad.
-    * Cola de mensajes para no perder datos durante micro-cortes.
-- GameService: Centraliza la lógica de premios, actualizaciones de XP 
-  y registro de partidas finalizadas.
-- Estadísticas Duales: Las partidas se guardan en MySQL y se sincronizan 
-  con MongoDB para generar reportes dinámicos de alto rendimiento.
+- MySQL (JPA): Datos transaccionales que requieren consistencia (Tienda).
+- MongoDB: Datos masivos y no estructurados (Estadísticas de batalla).
 
-5. FUNCIONALIDADES TÉCNICAS (FRONTEND)
+5. MANTENIMIENTO
 ------------------------------------------------------------------------
-- Motor de Renderizado: Uso intensivo de Canvas API para animaciones 
-  fluidas de misiles, explosiones y efectos climáticos.
-- Tienda Estratégica: Sistema de compra de mejoras (vida, munición, 
-  velocidad) y personalización visual (Skins de proyectiles).
-- Centro de Inteligencia: Dashboard con gráficos circulares y métricas 
-  en tiempo real que consume los datos procesados en MongoDB.
-
-6. INSTRUCCIONES DE ARRANQUE
-------------------------------------------------------------------------
-Paso 1: Levantar Bases de Datos. (Docker o XAMPP).
-Paso 2: Backend.
-   cd backend-java
-   ./mvnw spring-boot:run
-Paso 3: Frontend.
-   cd ..
-   npm install
-   npm start
-
-7. CREDENCIALES PREDEFINIDAS (Si se desea probar con datos)
-------------------------------------------------------------------------
-Usuarios generados por el Seeder (opcional):
-- hugo / 1234
-- ian / ian
-- gabi / gabi
+- El sistema es escalable. Para añadir nuevas armas o facciones, basta con 
+  actualizar los enumerados en GameService y las validaciones en el Backend.
 
 ========================================================================
-Desarrollado para el Proyecto Final de Desarrollo de Aplicaciones Multiplataforma (DAM).
+Documentación técnica generada automáticamente por Antigravity AI.
 ========================================================================
