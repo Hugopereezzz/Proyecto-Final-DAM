@@ -1,136 +1,135 @@
 :host {
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  height: 100%;
+  overflow: hidden;
 }
 
+/* ===== HEADER ===== */
 .ranking-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 25px;
-  width: 100%;
+  padding: 18px 12px 12px;
+  border-bottom: 1px solid var(--neon-red-dim);
+  background: rgba(255, 60, 60, 0.04);
+  flex-shrink: 0;
 }
 
 .cyber-title {
+  font-family: var(--font-header);
   color: var(--neon-red);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 3px;
-  text-shadow: 0 0 15px rgba(255, 0, 60, 0.6);
+  text-shadow: 0 0 14px rgba(255, 0, 60, 0.5);
   margin: 0;
+  text-align: center;
+  line-height: 1.1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 2px;
+}
+
+.cyber-title .icon {
+  font-size: 20px;
+  margin-bottom: 4px;
 }
 
 .title-underline {
   height: 2px;
-  width: 60px;
+  width: 50px;
   background: var(--neon-red);
-  margin-top: 8px;
+  margin-top: 10px;
   box-shadow: 0 0 10px var(--neon-red);
 }
 
-.subtitle {
-  font-size: 12px;
-  color: var(--text-main);
-  letter-spacing: 2px;
-  margin-bottom: 5px;
-}
-
-.cyber-title .icon {
-  font-size: 16px;
-}
-
+/* ===== TABLE ===== */
 .ranking-table {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  padding: 5px 0;
+  gap: 8px;
 }
+
+.ranking-table::-webkit-scrollbar { width: 4px; }
+.ranking-table::-webkit-scrollbar-track { background: transparent; }
+.ranking-table::-webkit-scrollbar-thumb { background: var(--neon-red-dim); border-radius: 2px; }
 
 .table-row {
   display: grid;
-  grid-template-columns: 50px 1fr auto;
+  grid-template-columns: 36px 1fr auto;
   align-items: center;
-  padding: 15px;
-  font-size: 16px;
-  margin-bottom: 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border-left: 4px solid transparent;
-  transition: all 0.3s ease;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 3px solid rgba(255,255,255,0.07);
+  transition: all 0.25s ease;
+  cursor: default;
 }
-
-/* Colores para el Top 3 */
-.table-row:nth-child(1n+1):nth-child(-n+3) {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.table-row:nth-child(1) { border-left-color: #ffd700; } /* Oro */
-.table-row:nth-child(2) { border-left-color: #c0c0c0; } /* Plata */
-.table-row:nth-child(3) { border-left-color: #cd7f32; } /* Bronce */
-
-.table-row:nth-child(1) .col-rank { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
-.table-row:nth-child(2) .col-rank { color: #c0c0c0; text-shadow: 0 0 10px rgba(192, 192, 192, 0.5); }
-.table-row:nth-child(3) .col-rank { color: #cd7f32; text-shadow: 0 0 10px rgba(205, 127, 50, 0.5); }
 
 .table-row:hover {
-  background: rgba(255, 255, 255, 0.06);
-  transform: scale(1.02);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(2px);
 }
 
+/* Top 3 medalias */
+.table-row.top1 { border-left-color: #ffd700; }
+.table-row.top2 { border-left-color: #c0c0c0; }
+.table-row.top3 { border-left-color: #cd7f32; }
+
+.table-row.top1 .col-rank { color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.6); }
+.table-row.top2 .col-rank { color: #c0c0c0; text-shadow: 0 0 10px rgba(192,192,192,0.5); }
+.table-row.top3 .col-rank { color: #cd7f32; text-shadow: 0 0 10px rgba(205,127,50,0.5); }
+
 .col-rank {
+  font-family: var(--font-header);
   font-weight: 900;
-  color: #ffffff;
-  font-size: 18px;
+  font-size: 14px;
+  color: var(--text-muted);
   text-align: center;
 }
 
 .col-name {
+  font-family: var(--font-header);
   color: var(--text-main);
-  padding-left: 10px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  padding: 0 6px;
 }
 
 .col-score {
-  text-align: right;
-  color: var(--neon-cyan);
-  font-weight: 800;
-  padding-right: 5px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 5px;
+  gap: 4px;
+  color: var(--neon-cyan);
+  font-family: var(--font-header);
+  font-weight: 800;
+  font-size: 13px;
 }
 
-.trophy {
-  font-size: 12px;
-  filter: drop-shadow(0 0 5px var(--neon-cyan));
-}
+.trophy { font-size: 11px; }
 
-.icon.cyan { color: var(--neon-cyan); }
-.icon.red { color: var(--neon-red); }
-.icon.green { color: var(--neon-green); }
-
+/* ===== ESTADOS ===== */
 .loading-msg, .no-data-msg {
   text-align: center;
   padding: 20px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 12px;
+  font-family: var(--font-header);
 }
 
 .error-msg {
   text-align: center;
   padding: 20px;
   color: var(--neon-red);
-  font-size: 14px;
+  font-size: 12px;
+  font-family: var(--font-header);
 }

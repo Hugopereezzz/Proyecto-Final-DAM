@@ -16,7 +16,6 @@ import { AuthService } from '../../services/auth.service';
         </div>
         <form (submit)="onSubmit(); $event.preventDefault()" class="form">
           <div class="field"><label>USUARIO</label><input [(ngModel)]="u" name="u" [disabled]="loading()" placeholder="Nombre"></div>
-          @if (isReg()) { <div class="field"><label>EMAIL</label><input [(ngModel)]="e" name="e" [disabled]="loading()" placeholder="tu@email.com"></div> }
           <div class="field"><label>PASSWORD</label><input type="password" [(ngModel)]="p" name="p" [disabled]="loading()" placeholder="••••"></div>
           @if (err()) { <div class="err" [class.ok]="err().includes('exitoso')">{{ err() }}</div> }
           <button type="submit" class="btn" [disabled]="loading()">{{ loading() ? 'ESPERA...' : (isReg() ? 'REGISTRAR' : 'ENTRAR') }}</button>
@@ -49,7 +48,7 @@ import { AuthService } from '../../services/auth.service';
 export class LoginComponent {
   private auth = inject(AuthService);
   isReg = signal(false);
-  u = signal(''); p = signal(''); e = signal('');
+  u = signal(''); p = signal('');
   err = signal(''); loading = signal(false);
   loginSuccess = output<{username: string}>();
 
@@ -66,9 +65,9 @@ export class LoginComponent {
   }
 
   onReg() {
-    if (!this.u() || !this.p() || !this.e()) return this.err.set('Completa campos');
+    if (!this.u() || !this.p()) return this.err.set('Completa campos');
     this.loading.set(true); this.err.set('');
-    this.auth.registrar({ nombreUsuario: this.u(), contrasena: this.p(), email: this.e() }).subscribe({
+    this.auth.registrar({ nombreUsuario: this.u(), contrasena: this.p() }).subscribe({
       next: () => { this.loading.set(false); this.isReg.set(false); this.err.set('¡Registro exitoso!'); },
       error: () => { this.loading.set(false); this.err.set('Error en registro'); }
     });

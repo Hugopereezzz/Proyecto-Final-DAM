@@ -27,8 +27,8 @@
 <!-- Vista SALA: Componente de sala activa (reemplaza todo el lobby) -->
 <app-sala-juego
   *ngIf="vistaActual === 'sala' && salaActual"
-  [codigoSala]="codigoSalaActual"
-  [salaInicial]="salaActual"
-  [miNombre]="username()"
+  [cs]="codigoSalaActual"
+  [si]="salaActual"
+  [mn]="username()"
   (salidaSala)="onSalidaSala()"
 ></app-sala-juego>

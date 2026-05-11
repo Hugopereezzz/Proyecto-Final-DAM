@@ -1,7 +1,7 @@
 <!-- Vista por defecto: botones de acción principales -->
 <ng-container *ngIf="vistaActual === 'default'">
   <div class="command-header">
-    <span class="subtitle">COMANDO DE SALA</span>
+    <h2 class="cyber-title">COMANDO DE SALA</h2>
   </div>
 
   <div class="command-actions">
@@ -27,10 +27,12 @@
 
 <!-- Vista: Formulario para crear una sala -->
 <ng-container *ngIf="vistaActual === 'crear'">
+  <div class="command-header">
+    <h2 class="cyber-title">CREAR NUEVA SALA</h2>
+  </div>
   <div class="modal-card">
     <div class="modal-header">
-      <h3 class="cyber-title">CREAR NUEVA SALA</h3>
-      <button class="btn-back" (click)="mostrarVista('default')">✕</button>
+      <button class="btn-back" (click)="mostrarVista('default')">← VOLVER</button>
     </div>
 
     <div class="form-group">
@@ -47,7 +49,6 @@
     <div class="form-group">
       <label class="form-label">TIPO DE SALA</label>
       <div class="tipo-selector">
-        <!-- Opción: Sala pública (aparece en la lista para todos) -->
         <button
           class="tipo-btn"
           [class.activo]="tipoSala === 'publica'"
@@ -55,7 +56,6 @@
         >
           🌐 PÚBLICA
         </button>
-        <!-- Opción: Sala privada (solo accesible mediante código) -->
         <button
           class="tipo-btn"
           [class.activo]="tipoSala === 'privada'"
@@ -66,22 +66,25 @@
       </div>
     </div>
 
-    <!-- Mensaje de error -->
     <p class="error-msg" *ngIf="errorSala">{{ errorSala }}</p>
 
-    <!-- Botón de crear -->
     <button class="btn-create" (click)="crearSala()" [disabled]="cargando">
-      {{ cargando ? 'CREANDO...' : 'CREAR SALA' }}
+      <span class="btn-content">
+        <span class="btn-title">{{ cargando ? 'CREANDO...' : 'CREAR SALA' }}</span>
+      </span>
+      <span class="icon">🚀</span>
     </button>
   </div>
 </ng-container>
 
 <!-- Vista: Formulario para unirse mediante código -->
 <ng-container *ngIf="vistaActual === 'unirse'">
+  <div class="command-header">
+    <h2 class="cyber-title">UNIRSE A SALA</h2>
+  </div>
   <div class="modal-card">
     <div class="modal-header">
-      <h3 class="cyber-title">UNIRSE A SALA</h3>
-      <button class="btn-back" (click)="mostrarVista('default')">✕</button>
+      <button class="btn-back" (click)="mostrarVista('default')">← VOLVER</button>
     </div>
 
     <div class="form-group">
@@ -96,12 +99,13 @@
       />
     </div>
 
-    <!-- Mensaje de error -->
     <p class="error-msg" *ngIf="errorSala">{{ errorSala }}</p>
 
-    <!-- Botón de unirse -->
     <button class="btn-join" (click)="unirseSala()" [disabled]="cargando">
-      {{ cargando ? 'CONECTANDO...' : 'UNIRSE' }}
+      <span class="btn-content">
+        <span class="btn-title">{{ cargando ? 'CONECTANDO...' : 'UNIRSE' }}</span>
+      </span>
+      <span class="icon">🔍</span>
     </button>
   </div>
 </ng-container>

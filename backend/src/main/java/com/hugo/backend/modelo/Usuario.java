@@ -27,9 +27,7 @@ public class Usuario {
     @JsonProperty("contrasena")
     private String password;
 
-    @Email
-    @NotBlank
-    @Column(unique = true)
+    @Column
     private String email;
 
     private int monedas = 0;

@@ -1,5 +1,8 @@
 <div class="ranking-header">
-  <h2 class="cyber-title"><span class="icon">🚀</span> TOP JUGADORES</h2>
+  <h2 class="cyber-title">
+    <span class="icon">🚀</span>
+    TOP<br />10
+  </h2>
   <div class="title-underline"></div>
 </div>
 
@@ -13,10 +16,11 @@
   </div>
 
   <div *ngIf="!cargando && !error && ranking.length === 0" class="no-data-msg">
-    Todavía no hay datos de ranking.
+    Sin datos aún.
   </div>
 
-  <div class="table-row" *ngFor="let usuario of ranking; let i = index">
+  <div class="table-row" *ngFor="let usuario of ranking; let i = index" [class.top1]="i===0" [class.top2]="i===1"
+    [class.top3]="i===2">
     <span class="col-rank">{{ i + 1 }}.</span>
     <span class="col-name">{{ usuario.nombreUsuario }}</span>
     <span class="col-score"><span class="trophy">🏆</span> {{ usuario.victorias }}</span>

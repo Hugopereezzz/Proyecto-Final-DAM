@@ -1,61 +1,65 @@
 :host {
   display: flex;
   flex-direction: column;
-  padding: 15px;
-  align-items: center;
-  justify-content: center;
+  padding: 0;
+  height: 100%;
 }
 
-/* ========== CABECERA ========== */
+/* ===== CABECERA ===== */
 .command-header {
-  margin-bottom: 20px;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--neon-cyan-dim);
+  background: rgba(0, 240, 255, 0.04);
+  flex-shrink: 0;
 }
 
-.command-header::before, .command-header::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 100px;
-  height: 2px;
-  background-color: var(--neon-red-dim);
-}
-.command-header::before { right: 100%; margin-right: 10px; }
-.command-header::after  { left: 100%;  margin-left: 10px; }
-
-.subtitle {
+.command-header .cyber-title {
   font-family: var(--font-header);
-  font-size: 13px;
   color: var(--text-main);
-  letter-spacing: 2px;
+  font-size: 14px;
+  letter-spacing: 3px;
+  margin: 0;
+  text-align: center;
 }
 
-/* ========== BOTONES DEFAULT ========== */
+.command-header .subtitle {
+  font-family: var(--font-header);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  margin-top: 2px;
+}
+
+/* ===== BOTONES DEFAULT ===== */
 .command-actions {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  width: 100%;
-  max-width: 420px;
+  gap: 12px;
+  padding: 16px 20px;
+  flex: 1;
+  justify-content: center;
 }
 
 button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
-  background: var(--panel-bg-solid);
+  padding: 14px 20px;
+  background: rgba(0, 0, 0, 0.3);
   border: 2px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   color: var(--text-main);
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
   font-family: var(--font-body);
   width: 100%;
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -63,57 +67,58 @@ button:disabled {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  text-align: left;
 }
 
 .btn-title {
   font-family: var(--font-header);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 1px;
 }
 
 .btn-subtitle {
-  font-size: 10px;
+  font-family: var(--font-header);
+  font-size: 9px;
   color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 2px;
 }
 
-.icon { font-size: 24px; }
+.icon { font-size: 22px; }
 
 .btn-create {
   border-color: var(--neon-green);
-  box-shadow: inset 0 0 10px rgba(57, 255, 20, 0.15);
+  box-shadow: inset 0 0 12px rgba(57, 255, 20, 0.08);
 }
 .btn-create:hover:not(:disabled) {
-  background: rgba(57, 255, 20, 0.1);
-  box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+  background: rgba(57, 255, 20, 0.08);
+  box-shadow: 0 0 18px rgba(57, 255, 20, 0.3), inset 0 0 12px rgba(57, 255, 20, 0.1);
+  transform: translateY(-1px);
 }
 
 .btn-join {
   border-color: #3b82f6;
-  box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.15);
+  box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.08);
 }
 .btn-join:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.1);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.3), inset 0 0 12px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
 }
 
-/* ========== MODAL CARD ========== */
+/* ===== MODAL CARD ===== */
 .modal-card {
-  background: var(--panel-bg-solid);
-  border: 1px solid var(--neon-cyan-dim);
-  border-radius: 10px;
+  flex: 1;
   padding: 20px;
-  width: 100%;
-  max-width: 420px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  box-shadow: 0 0 20px var(--neon-cyan-dim);
-  animation: fadeIn 0.2s ease;
+  gap: 14px;
+  animation: slideIn 0.2s ease;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -123,9 +128,9 @@ button:disabled {
   align-items: center;
 }
 
-.cyber-title {
+.modal-header .cyber-title {
   font-family: var(--font-header);
-  font-size: 16px;
+  font-size: 15px;
   color: var(--neon-cyan);
   margin: 0;
   letter-spacing: 1px;
@@ -135,33 +140,39 @@ button:disabled {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
   width: auto;
+  transition: color 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  transition: color 0.2s;
 }
-.btn-back:hover { color: var(--neon-red); }
+.btn-back:hover {
+  color: var(--neon-red);
+  background: rgba(255, 60, 60, 0.1);
+}
 
-/* ========== FORMULARIO ========== */
+/* ===== FORMULARIO ===== */
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .form-label {
   font-family: var(--font-header);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   letter-spacing: 1px;
 }
 
 .cyber-input {
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--neon-cyan-dim);
-  border-radius: 6px;
+  border-radius: 5px;
   color: var(--neon-cyan);
   font-family: var(--font-header);
   font-size: 14px;
@@ -174,12 +185,12 @@ button:disabled {
 
 .cyber-input:focus {
   border-color: var(--neon-cyan);
-  box-shadow: 0 0 8px var(--neon-cyan-dim);
+  box-shadow: 0 0 10px var(--neon-cyan-dim);
 }
 
-.cyber-input::placeholder { color: var(--text-muted); }
+.cyber-input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
-/* ========== SELECTOR TIPO SALA ========== */
+/* ===== TIPO SELECTOR ===== */
 .tipo-selector {
   display: flex;
   gap: 10px;
@@ -188,56 +199,57 @@ button:disabled {
 .tipo-btn {
   flex: 1;
   justify-content: center;
-  padding: 10px;
-  border: 2px solid rgba(255,255,255,0.1);
-  border-radius: 6px;
+  padding: 9px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
   font-family: var(--font-header);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   transition: all 0.2s;
+  letter-spacing: 0.5px;
 }
 
 .tipo-btn:hover:not(.activo) {
-  border-color: rgba(255,255,255,0.3);
-  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.04);
 }
 
 .tipo-btn.activo {
   border-color: var(--neon-cyan);
   background: rgba(0, 240, 255, 0.1);
   color: var(--neon-cyan);
-  box-shadow: 0 0 10px var(--neon-cyan-dim);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
 }
 
-/* ========== CÓDIGO DE SALA ========== */
+/* ===== CÓDIGO DE SALA ===== */
 .codigo-container {
   display: flex;
   align-items: center;
   gap: 10px;
   background: rgba(0, 0, 0, 0.5);
   border: 2px solid var(--neon-green);
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 12px 15px;
   justify-content: space-between;
 }
 
 .codigo-texto {
   font-family: var(--font-header);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 900;
   color: var(--neon-green);
   letter-spacing: 6px;
-  text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+  text-shadow: 0 0 12px rgba(57, 255, 20, 0.5);
 }
 
 .btn-copiar {
-  background: rgba(57, 255, 20, 0.15);
+  background: rgba(57, 255, 20, 0.12);
   border: 1px solid var(--neon-green);
   color: var(--neon-green);
-  border-radius: 6px;
+  border-radius: 5px;
   padding: 6px 12px;
   font-family: var(--font-header);
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
   transition: all 0.2s;
   justify-content: center;
@@ -245,7 +257,7 @@ button:disabled {
 }
 
 .btn-copiar:hover {
-  background: rgba(57, 255, 20, 0.3);
+  background: rgba(57, 255, 20, 0.25);
   box-shadow: 0 0 10px rgba(57, 255, 20, 0.4);
 }
 
@@ -255,17 +267,20 @@ button:disabled {
 }
 
 .codigo-hint {
-  font-size: 11px;
+  font-family: var(--font-header);
+  font-size: 10px;
   color: var(--text-muted);
   text-align: center;
   margin: 0;
+  letter-spacing: 0.5px;
 }
 
-/* ========== ERROR ========== */
+/* ===== ERROR ===== */
 .error-msg {
   color: var(--neon-red);
-  font-size: 12px;
+  font-family: var(--font-header);
+  font-size: 11px;
   margin: 0;
   text-align: center;
-  animation: fadeIn 0.2s ease;
+  animation: slideIn 0.2s ease;
 }
