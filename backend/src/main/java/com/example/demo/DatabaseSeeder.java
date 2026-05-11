@@ -14,6 +14,9 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Autowired
     private PartidaRepository partidaRepository;
 
+    @Autowired
+    private org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder passwordEncoder;
+
     @Override
     public void run(String... args) throws Exception {
         System.out.println("[SEEDER] Verificando estado de la base de datos MySQL (continentes_db)...");
@@ -21,17 +24,17 @@ public class DatabaseSeeder implements CommandLineRunner {
         if (userRepository.count() == 0) {
             System.out.println("[SEEDER] Base de datos vacía. Insertando jugadores iniciales...");
             
-            User hugo = new User("hugo", "1234");
+            User hugo = new User("hugo", passwordEncoder.encode("1234"));
             hugo.setDisplayName("Hugo");
             hugo.setCredits(500);
             hugo.setWins(10);
 
-            User ian = new User("ian", "1234");
+            User ian = new User("ian", passwordEncoder.encode("1234"));
             ian.setDisplayName("Ian");
             ian.setCredits(300);
             ian.setWins(5);
 
-            User mario = new User("mario", "1234");
+            User mario = new User("mario", passwordEncoder.encode("1234"));
             mario.setDisplayName("Mario");
             mario.setCredits(150);
             mario.setWins(2);
