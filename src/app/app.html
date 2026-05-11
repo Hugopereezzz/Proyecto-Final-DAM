@@ -1,44 +1,75 @@
-@if (!isLoggedIn()) {
-  <app-login (loginSuccess)="onLoginSuccess($event)"></app-login>
-} @else {
-  <div class="game-container" id="game-container" [attr.data-phase]="gamePhase()">
+<div class="app-root">
 
-    <!-- 2. SETUP / LOBBY PHASE -->
-    @if (gamePhase() === 'setup') {
-      <app-lobby [leaderboardRows]="leaderboardRows()" [roomPlayers]="roomPlayers()" [inRoom]="inRoom()"
-        [currentRoomId]="currentRoomId()" [currentRoomName]="currentRoomName()" [myCityId]="myCityId()"
-        (roomCreated)="currentRoomId.set($event.roomId); currentRoomName.set($event.roomName); myCityId.set($event.cityId); inRoom.set(true)"
-        (roomJoined)="currentRoomId.set($event.roomId); currentRoomName.set($event.roomName); myCityId.set($event.cityId); inRoom.set(true)"
-        (gameStarted)="gamePhase.set('aiming')" (leftRoom)="leaveGame()" (loggedOut)="logout()"
-        (refreshLeaderboard)="refreshLeaderboard()" />
-      
-      <!-- Optional: Include the new LobbyPrincipalComponent if needed, but for now we stick to the game-compatible one -->
-      <!-- <app-lobby-principal [username]="currentUser()"></app-lobby-principal> -->
+  <!-- ══ Background ══ -->
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- ══ Header (hidden on login) ══ -->
+  @if (game.phase() !== 'login') {
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="logo-block">
+          <span class="logo-icon">🚀</span>
+          <div class="logo-text">
+            <span class="logo-title">GUERRA DE FACCIONES</span>
+            <span class="logo-sub">Arena de Misiles</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          @if (game.phase() === 'battle') {
+            <div class="battle-meta">
+              <div class="alive-badge">
+                <span class="alive-num">{{ game.aliveFighters().length }}</span>
+                <span class="alive-lbl">vivos</span>
+              </div>
+              <div class="turn-pill">Turno {{ game.turnNumber() }}</div>
+              <button class="forfeit-btn" (click)="game.surrender()">🏳️ Rendirse</button>
+            </div>
+          }
+          @if (game.loggedInUser()) {
+            <div class="user-chip">
+              <span class="user-icon">👤</span>
+              <span class="user-name">{{ game.loggedInUser() }}</span>
+              <button class="logout-btn" (click)="game.logout()">Salir</button>
+            </div>
+          }
+        </div>
+      </div>
+    </header>
+  }
+
+  <!-- ══ Main Content ══ -->
+  <main class="app-main">
+    @switch (game.phase()) {
+
+      @case ('login') {
+        <div class="login-wrapper phase-enter">
+          <app-login (loginSuccess)="game.onLoginSuccess($event.username)" />
+        </div>
+      }
+
+      @case ('lobby') {
+        <app-lobby-principal [username]="game.loggedInUser() || 'Jugador'" />
+      }
+
+      @case ('selection') {
+        <app-faction-select class="phase-enter" />
+      }
+
+      @case ('battle') {
+        <div class="battle-view phase-enter">
+          <app-battle-arena />
+        </div>
+      }
+
+      @case ('gameover') {
+        <app-game-over class="phase-enter" />
+      }
+
     }
+  </main>
 
-    <!-- 3. GAME CANVAS -->
-    <canvas #gameCanvas class="game-canvas" (click)="onCanvasClick($event)"
-      [class.hidden]="gamePhase() === 'setup' || gamePhase() === 'auth'" id="game-canvas"></canvas>
-
-    <!-- 4. HUD OVERLAY -->
-    @if (gamePhase() !== 'setup' && gamePhase() !== 'auth') {
-    <app-game-hud [cities]="cities()" [gamePhase]="gamePhase()" [turnNumber]="turnNumber()" [turnTimer]="turnTimer()"
-      [currentPlayerName]="currentPlayerName()" [currentPlayerColor]="currentPlayerColor()" [isMyTurn]="isMyTurn()"
-      [canDefend]="canDefend()" [lootEarned]="state.lootEarned" (skipDefense)="skipDefense()"
-      (callAllies)="callAlliedSupport()" (leaveGame)="leaveGame()" />
-    }
-
-    <!-- 5. ROULETTE MODAL -->
-    @if (rouletteVisible()) {
-    <app-roulette [player]="roulettePlayer()" [displaySkill]="rouletteDisplaySkill()"
-      [skillDescription]="rouletteSkillDescription()" />
-    }
-
-    <!-- 6. GAME OVER MODAL -->
-    @if (gamePhase() === 'gameover') {
-    <app-game-over [winner]="winner()" [endReason]="endReason()" [winBonus]="winBonus()" [lootEarned]="state.lootEarned"
-      [totalEarnings]="totalEarnings()" (playAgain)="returnToLobby()" />
-    }
-
-  </div>
-}
+</div>

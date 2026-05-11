@@ -275,6 +275,82 @@ io.on('connection', (socket) => {
     socket.emit('salas-actualizadas', obtenerSalasPublicas());
   });
 
+  // ============================================================
+  // EVENTOS DE JUEGO (MULTIJUGADOR)
+  // ============================================================
+
+  /**
+   * El host inicia el juego desde la sala.
+   */
+  socket.on('iniciar-juego', () => {
+    const usuario = usuarios.get(socket.id);
+    if (!usuario || !usuario.salaActual) return;
+
+    const sala = salas.get(usuario.salaActual);
+    if (!sala || sala.host !== socket.id) return;
+
+    // Notificar a todos que el juego ha comenzado
+    io.to(usuario.salaActual).emit('juego-iniciado');
+    console.log(`[JUEGO] Partida iniciada en sala ${usuario.salaActual}`);
+  });
+
+  /**
+   * Sincroniza la facción seleccionada por un jugador.
+   */
+  socket.on('seleccionar-faccion', (faccionId) => {
+    const usuario = usuarios.get(socket.id);
+    if (!usuario || !usuario.salaActual) return;
+
+    const sala = salas.get(usuario.salaActual);
+    if (!sala) return;
+
+    const jugador = sala.jugadores.find(j => j.socketId === socket.id);
+    if (jugador) {
+      jugador.faccionId = faccionId;
+      console.log(`[JUEGO] ${jugador.nombre} eligió facción: ${faccionId}`);
+    }
+
+    // Notificar a todos en la sala del cambio (incluyendo la facción elegida)
+    io.to(usuario.salaActual).emit('sala-actualizada', sala);
+
+    // Comprobar si TODOS han elegido facción
+    const todosTienenFaccion = sala.jugadores.every(j => !!j.faccionId);
+    if (todosTienenFaccion && sala.jugadores.length >= 2) {
+      console.log(`[JUEGO] ¡Todos han elegido! Iniciando batalla en sala ${usuario.salaActual}`);
+      const ids = sala.jugadores.map(j => j.faccionId);
+      const nombres = sala.jugadores.map(j => j.nombre);
+      const order = ids.map((_, i) => i).sort(() => Math.random() - 0.5);
+      io.to(usuario.salaActual).emit('batalla-comenzada', { ids, order, nombres });
+    }
+  });
+
+  /**
+   * Sincroniza una acción de combate.
+   */
+  socket.on('realizar-accion', (accion) => {
+    const usuario = usuarios.get(socket.id);
+    const salaId = usuario?.salaActual || Array.from(socket.rooms).find(r => r !== socket.id);
+    
+    if (!salaId) {
+      console.warn(`[ACCION] Error: ${socket.id} intentó actuar sin estar en una sala`);
+      return;
+    }
+
+    console.log(`[ACCION] Sala ${salaId}: ${usuario?.nombre || 'Desconocido'} -> ${accion.abilityId}`);
+    
+    // Emitir a todos en la sala (incluyendo al emisor)
+    io.to(salaId).emit('accion-recibida', accion);
+  });
+
+  /**
+   * Sincroniza el inicio oficial de la batalla (cuando todos tienen facción).
+   */
+  socket.on('comenzar-batalla', (datosBatalla) => {
+    const usuario = usuarios.get(socket.id);
+    if (!usuario || !usuario.salaActual) return;
+    io.to(usuario.salaActual).emit('batalla-comenzada', datosBatalla);
+  });
+
   // ---------------------------------------------------------
   // EVENTO: Cliente desconectado
   // ---------------------------------------------------------

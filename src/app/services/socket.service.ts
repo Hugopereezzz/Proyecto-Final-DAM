@@ -7,6 +7,7 @@ export interface Jugador {
   socketId: string;
   nombre: string;
   listo: boolean;
+  faccionId?: string;
 }
 
 // Interfaz que representa el estado completo de una sala
@@ -43,8 +44,13 @@ export class SocketService {
   private readonly URL_SERVIDOR = 'http://localhost:3000';
 
   constructor() {
-    // Inicializar la conexión al servidor (sin conectar automáticamente)
-    this.socket = io(this.URL_SERVIDOR, { autoConnect: false });
+    // Inicializar la conexión al servidor
+    this.socket = io(this.URL_SERVIDOR, { 
+      autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000
+    });
   }
 
   // ============================================================
@@ -56,10 +62,18 @@ export class SocketService {
    * @param nombreUsuario Nombre del jugador a identificar.
    */
   conectar(nombreUsuario: string): void {
-    if (!this.socket.connected) {
-      this.socket.connect();
+    if (this.socket.connected) {
       this.socket.emit('identificar', nombreUsuario);
+      return;
     }
+
+    // Configurar identificación al conectar
+    this.socket.once('connect', () => {
+      console.log('Conectado al servidor Socket.io');
+      this.socket.emit('identificar', nombreUsuario);
+    });
+
+    this.socket.connect();
   }
 
   /**
@@ -215,7 +229,69 @@ export class SocketService {
    */
   onMensajeSala(): Observable<MensajeChat> {
     return new Observable(observer => {
-      this.socket.on('mensaje-sala', (msg) => observer.next(msg));
+      const handler = (msg: any) => observer.next(msg);
+      this.socket.on('mensaje-sala', handler);
+      return () => this.socket.off('mensaje-sala', handler);
+    });
+  }
+
+  // ============================================================
+  // EVENTOS DE JUEGO
+  // ============================================================
+
+  iniciarJuego(): void {
+    this.socket.emit('iniciar-juego');
+  }
+
+  onJuegoIniciado(): Observable<void> {
+    return new Observable(observer => {
+      const handler = () => observer.next();
+      this.socket.on('juego-iniciado', handler);
+      return () => this.socket.off('juego-iniciado', handler);
+    });
+  }
+
+  seleccionarFaccion(faccionId: string): void {
+    this.socket.emit('seleccionar-faccion', faccionId);
+  }
+
+  onJugadorEligioFaccion(): Observable<{ socketId: string, nombre: string, faccionId: string }> {
+    return new Observable(observer => {
+      const handler = (data: any) => observer.next(data);
+      this.socket.on('jugador-eligio-faccion', handler);
+      return () => this.socket.off('jugador-eligio-faccion', handler);
+    });
+  }
+
+  realizarAccion(accion: { abilityId: string, targetIdx: number, extra?: any }): void {
+    if (!this.socket.connected) {
+      console.error('ERROR: No se puede emitir acción. Socket desconectado.');
+      return;
+    }
+    console.log('Emitiendo acción al servidor:', accion);
+    this.socket.emit('realizar-accion', accion);
+  }
+
+  onAccionRecibida(): Observable<{ abilityId: string, targetIdx: number, extra?: any }> {
+    return new Observable(observer => {
+      const handler = (accion: any) => {
+        console.log('Recibida acción del servidor:', accion);
+        observer.next(accion);
+      };
+      this.socket.on('accion-recibida', handler);
+      return () => this.socket.off('accion-recibida', handler);
+    });
+  }
+
+  comenzarBatalla(datos: any): void {
+    this.socket.emit('comenzar-batalla', datos);
+  }
+
+  onBatallaComenzada(): Observable<any> {
+    return new Observable(observer => {
+      const handler = (datos: any) => observer.next(datos);
+      this.socket.on('batalla-comenzada', handler);
+      return () => this.socket.off('batalla-comenzada', handler);
     });
   }
 }

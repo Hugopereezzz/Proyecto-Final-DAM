@@ -2,44 +2,29 @@
   <div class="background-overlay"></div>
 
   <div class="login-card">
-    <!-- Corner decorators -->
-    <span class="corner top-left"></span>
-    <span class="corner top-right"></span>
-    <span class="corner bot-left"></span>
-    <span class="corner bot-right"></span>
-
-    <div class="login-header">
-      <div class="logo-badge">W.A.R</div>
-      <h1 class="war-title">W.A.R. NET</h1>
-      <p class="war-sub">SISTEMA DE MANDO GLOBAL · AUTENTICACIÓN REQUERIDA</p>
-      <div class="header-line"></div>
+    <div class="card-header">
+      <div class="game-logo">
+        <span class="logo-text">Pulso <span>Global</span></span>
+      </div>
+      <h2>{{ isRegisterMode() ? 'CREAR CUENTA' : 'INICIAR SESIÓN' }}</h2>
+      <p>{{ isRegisterMode() ? 'Únete a la legión de combate' : 'Accede a tu cuenta de combate' }}</p>
     </div>
 
     <form (submit)="onSubmit(); $event.preventDefault()" class="login-form">
       <div class="input-group">
         <label for="username">USUARIO</label>
         <div class="input-wrapper">
-          <input type="text" id="username" name="username" [ngModel]="username()" (ngModelChange)="username.set($event)" placeholder="Introduce tu nombre"
+          <input type="text" id="username" name="username" [(ngModel)]="username" placeholder="Introduce tu nombre"
             [disabled]="isLoading()" autocomplete="off">
           <span class="input-line"></span>
         </div>
       </div>
 
-      @if (isRegisterMode()) {
-      <div class="input-group">
-        <label for="email">EMAIL</label>
-        <div class="input-wrapper">
-          <input type="email" id="email" name="email" [ngModel]="email()" (ngModelChange)="email.set($event)" placeholder="tu@email.com"
-            [disabled]="isLoading()" autocomplete="off">
-          <span class="input-line"></span>
-        </div>
-      </div>
-      }
 
       <div class="input-group">
         <label for="password">CONTRASEÑA</label>
         <div class="input-wrapper">
-          <input type="password" id="password" name="password" [ngModel]="password()" (ngModelChange)="password.set($event)" placeholder="••••••••"
+          <input type="password" id="password" name="password" [(ngModel)]="password" placeholder="••••••••"
             [disabled]="isLoading()">
           <span class="input-line"></span>
         </div>
