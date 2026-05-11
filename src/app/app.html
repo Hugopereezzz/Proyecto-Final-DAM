@@ -1,11 +1,75 @@
-@if (!isLoggedIn()) {
-  <app-login (loginSuccess)="onLoginSuccess($event)"></app-login>
-} @else {
-  <div class="main-content">
-    <!-- Solo cargamos el componente del Lobby tras el inicio de sesión -->
-    <main>
-      <app-lobby-principal [username]="currentUser()"></app-lobby-principal>
-      <router-outlet></router-outlet>
-    </main>
-  </div>
-}
+<div class="app-root">
+
+  <!-- ══ Background ══ -->
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- ══ Header (hidden on login) ══ -->
+  @if (game.phase() !== 'login') {
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="logo-block">
+          <span class="logo-icon">🚀</span>
+          <div class="logo-text">
+            <span class="logo-title">GUERRA DE FACCIONES</span>
+            <span class="logo-sub">Arena de Misiles</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          @if (game.phase() === 'battle') {
+            <div class="battle-meta">
+              <div class="alive-badge">
+                <span class="alive-num">{{ game.aliveFighters().length }}</span>
+                <span class="alive-lbl">vivos</span>
+              </div>
+              <div class="turn-pill">Turno {{ game.turnNumber() }}</div>
+              <button class="forfeit-btn" (click)="game.surrender()">🏳️ Rendirse</button>
+            </div>
+          }
+          @if (game.loggedInUser()) {
+            <div class="user-chip">
+              <span class="user-icon">👤</span>
+              <span class="user-name">{{ game.loggedInUser() }}</span>
+              <button class="logout-btn" (click)="game.logout()">Salir</button>
+            </div>
+          }
+        </div>
+      </div>
+    </header>
+  }
+
+  <!-- ══ Main Content ══ -->
+  <main class="app-main">
+    @switch (game.phase()) {
+
+      @case ('login') {
+        <div class="login-wrapper phase-enter">
+          <app-login (loginSuccess)="game.onLoginSuccess($event.username)" />
+        </div>
+      }
+
+      @case ('lobby') {
+        <app-lobby-principal [username]="game.loggedInUser() || 'Jugador'" />
+      }
+
+      @case ('selection') {
+        <app-faction-select class="phase-enter" />
+      }
+
+      @case ('battle') {
+        <div class="battle-view phase-enter">
+          <app-battle-arena />
+        </div>
+      }
+
+      @case ('gameover') {
+        <app-game-over class="phase-enter" />
+      }
+
+    }
+  </main>
+
+</div>

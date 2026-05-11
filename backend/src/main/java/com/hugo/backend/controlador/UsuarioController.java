@@ -1,6 +1,8 @@
 package com.hugo.backend.controlador;
 
+import com.hugo.backend.modelo.Faccion;
 import com.hugo.backend.modelo.Usuario;
+import com.hugo.backend.servicio.FaccionService;
 import com.hugo.backend.servicio.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,57 +10,69 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
-/**
- * Controlador REST que expone los endpoints para la gestión de usuarios.
- * Permite la comunicación entre el frontend y el backend.
- */
 @RestController
 @RequestMapping("/api/usuarios")
-@CrossOrigin(origins = "*") // Permite peticiones desde cualquier origen (necesario para el frontend Angular)
+@CrossOrigin(origins = "*")
 public class UsuarioController {
 
     @Autowired
     private UsuarioService usuarioService;
 
-    /**
-     * Registrar un nuevo usuario.
-     */
+    @Autowired
+    private FaccionService faccionService;
+
     @PostMapping("/registro")
-    public ResponseEntity<?> registrarUsuario(@Valid @RequestBody Usuario usuario) {
-        try {
-            // Guardamos el usuario usando el servicio
-            Usuario guardado = usuarioService.guardarUsuario(usuario);
-            return ResponseEntity.ok(guardado);
-        } catch (RuntimeException e) {
-            // Si el nombre ya existe, devolvemos error 409 (Conflict)
-            return ResponseEntity.status(409).body(e.getMessage());
-        }
+    public ResponseEntity<Usuario> registrarUsuario(@Valid @RequestBody Usuario usuario) {
+        return ResponseEntity.ok(usuarioService.guardarUsuario(usuario));
     }
 
-    /**
-     * Iniciar sesión.
-     */
     @PostMapping("/login")
-    public ResponseEntity<Usuario> login(@RequestBody Usuario loginRequest) {
-        return usuarioService.validarLogin(loginRequest.getNombreUsuario(), loginRequest.getContrasena())
+    public ResponseEntity<Usuario> login(@RequestBody Map<String, String> credenciales) {
+        return usuarioService.login(credenciales.get("nombreUsuario"), credenciales.get("contrasena"))
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(401).build()); // 401 si falla el login
+                .orElse(ResponseEntity.status(401).build());
     }
 
-    /**
-     * Lista de todos los usuarios (para pruebas).
-     */
+    @GetMapping("/ranking")
+    public List<Usuario> ranking() {
+        return usuarioService.obtenerRanking();
+    }
+
+
     @GetMapping
     public List<Usuario> listarUsuarios() {
         return usuarioService.obtenerTodos();
     }
 
-    /**
-     * Ranking de los 10 mejores.
-     */
-    @GetMapping("/ranking")
-    public List<Usuario> obtenerRanking() {
-        return usuarioService.obtenerRanking();
+    @GetMapping("/{id}")
+    public ResponseEntity<Usuario> obtenerUsuario(@PathVariable Long id) {
+        return usuarioService.obtenerPorId(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Usuario> actualizarUsuario(@PathVariable Long id, @RequestBody Usuario usuario) {
+        return ResponseEntity.ok(usuarioService.actualizarUsuario(id, usuario));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarUsuario(@PathVariable Long id) {
+        usuarioService.eliminarUsuario(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/facciones")
+    public ResponseEntity<List<Faccion>> listarFaccionesUsuario(@PathVariable Long id) {
+        return usuarioService.obtenerPorId(id)
+                .map(u -> ResponseEntity.ok(u.getFacciones()))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/comprar-faccion")
+    public ResponseEntity<Faccion> comprarFaccion(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(faccionService.comprarFaccion(id, body.get("nombre"), body.get("tipo")));
     }
 }

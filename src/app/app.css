@@ -1,99 +1,119 @@
-/* Contenedor principal que se muestra tras el login */
-.main-content {
-  width: 100vw; /* Ocupa el 100% del ancho de la ventana */
-  height: 100vh; /* Ocupa el 100% del alto de la ventana */
-  background: #0a0f14; /* Color de fondo oscuro */
-  color: #fff;
-  font-family: 'Outfit', sans-serif;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* Mantiene el contenido dentro de la pantalla */
-}
-
-/* Cabecera superior del juego */
-header {
-  padding: 15px 40px;
-  background: rgba(255, 255, 255, 0.03);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px); /* Efecto de cristal esmerilado */
-}
-
-/* Título de bienvenida */
-header h1 {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0;
-  color: #00d4ff;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* Botón de cerrar sesión */
-header button {
-  background: rgba(255, 71, 87, 0.1);
-  border: 1px solid rgba(255, 71, 87, 0.2);
-  color: #ff4757;
-  padding: 8px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 12px;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-}
-
-header button:hover {
-  background: #ff4757;
-  color: #fff;
-  box-shadow: 0 0 15px rgba(255, 71, 87, 0.4);
-}
-
-/* Área principal de contenido del juego */
-main {
-  flex: 1; /* Ocupa todo el espacio restante */
+/* ═══════════════════════════════
+   APP ROOT
+═══════════════════════════════ */
+.app-root {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow-x: hidden;
 }
 
-/* Pantalla de bienvenida al entrar */
-.welcome-screen {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 40px;
-  background: radial-gradient(circle at center, rgba(0, 212, 255, 0.05) 0%, transparent 70%);
+/* ── Background ── */
+.bg-grid {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+  pointer-events: none; z-index: 0;
+}
+.bg-orb {
+  position: fixed; border-radius: 50%;
+  filter: blur(130px); pointer-events: none; z-index: 0;
+  animation: orb-drift ease-in-out infinite;
+}
+.orb-1 { width:600px; height:600px; top:-200px; left:-200px;
+  background: radial-gradient(circle, rgba(124,58,237,0.14) 0%, transparent 70%);
+  animation-duration: 18s; }
+.orb-2 { width:500px; height:500px; bottom:-150px; right:-150px;
+  background: radial-gradient(circle, rgba(14,165,233,0.11) 0%, transparent 70%);
+  animation-duration: 22s; animation-delay:-8s; }
+.orb-3 { width:400px; height:400px; top:50%; left:50%; transform:translate(-50%,-50%);
+  background: radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%);
+  animation-duration: 28s; animation-delay:-14s; }
+@keyframes orb-drift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(28px,-38px) scale(1.04); }
+  66%      { transform: translate(-18px,18px) scale(0.96); }
 }
 
-.welcome-screen h2 {
-  font-size: 56px;
-  font-weight: 800;
-  margin-bottom: 15px;
-  letter-spacing: -1px;
-  background: linear-gradient(135deg, #fff 0%, #00d4ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.3));
+/* ── Header ── */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7,7,15,0.75);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.header-inner {
+  max-width: 1400px; margin: 0 auto;
+  padding: 10px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.logo-block { display: flex; align-items: center; gap: 10px; }
+.logo-icon  { font-size: 1.5rem; }
+.logo-text  { display: flex; flex-direction: column; gap: 1px; }
+.logo-title {
+  font-size: 0.95rem; font-weight: 900; letter-spacing: 0.12em;
+  background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.5));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.logo-sub { font-size: 0.58rem; color: rgba(255,255,255,0.35); letter-spacing: 0.1em; }
+
+.header-right { display: flex; align-items: center; gap: 14px; }
+.battle-meta  { display: flex; align-items: center; gap: 12px; }
+.alive-badge  { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.alive-num    { font-size: 1.2rem; font-weight: 900; color: #22c55e; line-height: 1; }
+.alive-lbl    { font-size: 0.52rem; color: rgba(255,255,255,0.38); letter-spacing: 0.08em; }
+.turn-pill {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: 0.72rem; font-weight: 800; color: rgba(255,255,255,0.65);
+}
+.forfeit-btn {
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  color: #ef4444; border-radius: 10px; padding: 7px 14px;
+  cursor: pointer; font-size: 0.72rem; font-weight: 700; transition: all 0.2s;
+}
+.forfeit-btn:hover { background: rgba(239,68,68,0.2); border-color: #ef4444; }
+.user-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 5px 12px;
+}
+.user-icon { font-size: 0.85rem; }
+.user-name { font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.75); }
+.logout-btn {
+  background: none; border: none; color: rgba(255,255,255,0.3);
+  font-size: 0.65rem; cursor: pointer; transition: color 0.2s; padding: 0;
+}
+.logout-btn:hover { color: #ef4444; }
+
+/* ── Main ── */
+.app-main { flex: 1; position: relative; z-index: 1; }
+
+.login-wrapper {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
 }
 
-.welcome-screen p {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 20px;
-  font-weight: 300;
+.battle-view {
+  padding: 14px;
+  max-width: 1400px; margin: 0 auto;
+  height: calc(100vh - 56px);
+  display: flex; flex-direction: column;
 }
 
-/* Responsividad para Móviles */
-@media (max-width: 768px) {
-  .main-content {
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
+.phase-enter {
+  display: block;
+  animation: phase-in 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+@keyframes phase-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .header-inner { padding: 8px 12px; }
+  .battle-view { height: auto; padding: 10px; }
+  .logo-title { font-size: 0.75rem; }
 }
