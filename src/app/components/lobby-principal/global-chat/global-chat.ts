@@ -26,46 +26,48 @@ export class GlobalChatComponent implements OnInit, OnDestroy {
   nuevoMensaje = '';
 
   ngOnInit(): void {
-    // Suscribirse al observable de mensajes globales para recibirlos en tiempo real
+    // Escuchamos los mensajes que llegan del servidor
     this.subs.push(
       this.socketService.onMensajeGlobal().subscribe(msg => {
-        this.mensajes.push(msg);
-        this.scrollChat(); // Scroll automático al último mensaje
+        this.mensajes.push(msg); // Añadimos el mensaje a la lista
+        this.scrollChat(); // Bajamos el scroll para ver el mensaje nuevo
       })
     );
   }
 
   ngOnDestroy(): void {
-    // Cancelar suscripciones para evitar memory leaks
+    // Cerramos la escucha al cerrar el componente
     this.subs.forEach(s => s.unsubscribe());
   }
 
   /**
-   * Envía el mensaje al servidor y limpia el campo de texto.
+   * Envía el mensaje escrito.
    */
   enviarMensaje(): void {
     if (!this.nuevoMensaje.trim()) return;
     this.socketService.enviarMensajeGlobal(this.nuevoMensaje.trim());
-    this.nuevoMensaje = '';
+    this.nuevoMensaje = ''; // Limpiamos la caja de texto
   }
 
   /**
-   * Permite enviar el mensaje presionando la tecla Enter.
+   * Permite enviar al pulsar la tecla Enter.
    */
   onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter') {
       event.preventDefault();
       this.enviarMensaje();
     }
   }
 
   /**
-   * Hace scroll automático hasta el último mensaje del chat.
+   * Baja el scroll del chat al final automáticamente.
    */
   private scrollChat(): void {
     setTimeout(() => {
-      const el = document.querySelector('.chat-messages');
-      if (el) el.scrollTop = el.scrollHeight;
-    }, 50);
+      const chatBox = document.querySelector('.chat-messages');
+      if (chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    }, 100);
   }
 }

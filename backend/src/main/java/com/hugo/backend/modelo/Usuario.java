@@ -1,10 +1,10 @@
 package com.hugo.backend.modelo;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 /**
@@ -18,14 +18,13 @@ public class Usuario {
     private Long id; // Identificador único autoincremental gestionado por la base de datos
 
     @NotBlank(message = "El nombre de usuario es obligatorio")
+    @Column(unique = true)
     private String nombreUsuario; // Nombre único utilizado para el inicio de sesión
 
     @NotBlank(message = "La contraseña es obligatoria")
     private String contrasena; // Contraseña almacenada (idealmente debería estar encriptada)
 
-    @Email(message = "El formato del email no es válido")
-    @NotBlank(message = "El email es obligatorio")
-    private String email; // Dirección de correo electrónico asociada a la cuenta
+    private String email; // Dirección de correo electrónico asociada a la cuenta (opcional)
 
     private int victorias = 0; // Número de victorias acumuladas por el jugador (por defecto 0)
 

@@ -18,36 +18,26 @@ public class UsuarioService {
     private UsuarioRepository usuarioRepository;
 
     /**
-     * Guarda un nuevo usuario en la base de datos.
-     * @param usuario El objeto usuario a persistir.
-     * @return El usuario guardado con su ID generado.
+     * Guarda un nuevo usuario si el nombre no está ocupado.
      */
     public Usuario guardarUsuario(Usuario usuario) {
+        // 1. Verificamos si el nombre ya existe
+        if (usuarioRepository.findByNombreUsuario(usuario.getNombreUsuario()).isPresent()) {
+            throw new RuntimeException("El nombre de usuario ya está en uso");
+        }
+        // 2. Si no existe, lo guardamos
         return usuarioRepository.save(usuario);
     }
 
     /**
-     * Recupera todos los usuarios registrados en el sistema.
-     * @return Una lista con todos los usuarios.
+     * Lista completa de usuarios.
      */
     public List<Usuario> obtenerTodos() {
         return usuarioRepository.findAll();
     }
 
     /**
-     * Busca un usuario específico por su identificador único.
-     * @param id El ID del usuario.
-     * @return Un Optional con el usuario si existe.
-     */
-    public Optional<Usuario> obtenerPorId(Long id) {
-        return usuarioRepository.findById(id);
-    }
-
-    /**
-     * Verifica si el nombre de usuario y la contraseña coinciden con un registro existente.
-     * @param nombreUsuario Nombre del usuario.
-     * @param contrasena Contraseña introducida.
-     * @return Un Optional con el usuario si las credenciales son válidas.
+     * Comprueba si el login es correcto.
      */
     public Optional<Usuario> validarLogin(String nombreUsuario, String contrasena) {
         return usuarioRepository.findByNombreUsuario(nombreUsuario)
@@ -55,26 +45,7 @@ public class UsuarioService {
     }
 
     /**
-     * Obtiene un usuario buscando por su nombre de usuario.
-     * @param nombreUsuario El nombre a buscar.
-     * @return Un Optional con el usuario.
-     */
-    public Optional<Usuario> obtenerPorNombre(String nombreUsuario) {
-        return usuarioRepository.findByNombreUsuario(nombreUsuario);
-    }
-
-    /**
-     * Elimina un usuario de la base de datos de forma permanente.
-     * @param id El ID del usuario a eliminar.
-     */
-    public void eliminarUsuario(Long id) {
-        usuarioRepository.deleteById(id);
-    }
-
-    /**
-     * Obtiene el top 10 de jugadores con más victorias.
-     *
-     * @return Lista de usuarios ordenada por victorias de mayor a menor.
+     * Ranking de victorias.
      */
     public List<Usuario> obtenerRanking() {
         return usuarioRepository.findTop10ByOrderByVictoriasDesc();

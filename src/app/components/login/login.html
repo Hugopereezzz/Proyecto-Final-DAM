@@ -20,16 +20,6 @@
         </div>
       </div>
 
-      @if (isRegisterMode()) {
-      <div class="input-group">
-        <label for="email">EMAIL</label>
-        <div class="input-wrapper">
-          <input type="email" id="email" name="email" [(ngModel)]="email" placeholder="tu@email.com"
-            [disabled]="isLoading()" autocomplete="off">
-          <span class="input-line"></span>
-        </div>
-      </div>
-      }
 
       <div class="input-group">
         <label for="password">CONTRASEÑA</label>
