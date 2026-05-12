@@ -81,7 +81,7 @@ import { Ability } from '../../models/game.models';
             </div>
           </div>
 
-          @if (myFighterIndex !== -1) {
+          @if (game.isMyTurn()) {
             <button class="surrender-btn" (click)="surrender()">🏳️ Rendirse / Abandonar</button>
           }
         </div>
@@ -163,11 +163,6 @@ export class BattleArenaComponent {
     return this.game.isSelfAbility(ab) ? 'Usa en ti mismo' : 'Elige objetivo';
   });
 
-  get myFighterIndex(): number {
-    if (!this.game.isMultiplayer()) return this.game.currentFighterIndex();
-    return this.game.fighters().findIndex(f => f.playerName === this.game.loggedInUser() && f.alive);
-  }
-
   constructor() {
     this.socketService.onAccionRecibida().pipe(takeUntilDestroyed()).subscribe(a => {
       if (a.abilityId === 'system_surrender') {
@@ -203,8 +198,8 @@ export class BattleArenaComponent {
   }
 
   surrender() {
-    const idx = this.myFighterIndex;
-    if (idx === -1) return;
+    if (!this.game.isMyTurn()) return;
+    const idx = this.game.currentFighterIndex();
     this.game.isMultiplayer() ? this.socketService.realizarAccion({ abilityId: 'system_surrender', targetIdx: idx }) : this.game.applySurrender(idx);
   }
 }

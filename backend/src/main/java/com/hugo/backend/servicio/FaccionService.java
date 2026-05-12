@@ -30,6 +30,7 @@ public class FaccionService {
 
     @Transactional
     public Faccion comprarFaccion(Long usuarioId, String nombre, String tipo) {
+        if (usuarioId == null) throw new IllegalArgumentException("El ID de usuario no puede ser nulo");
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -52,6 +53,7 @@ public class FaccionService {
 
     @Transactional
     public Faccion crearFaccionDirecto(Long usuarioId, String nombre, String tipo) {
+        if (usuarioId == null) throw new IllegalArgumentException("El ID de usuario no puede ser nulo");
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -73,11 +75,13 @@ public class FaccionService {
 
     @Transactional
     public void eliminarFaccion(Long id) {
+        if (id == null) throw new IllegalArgumentException("El ID no puede ser nulo");
         faccionRepository.deleteById(id);
     }
 
     @Transactional
     public Faccion actualizarFaccion(Long id, Faccion datos) {
+        if (id == null) throw new IllegalArgumentException("El ID no puede ser nulo");
         return faccionRepository.findById(id).map(f -> {
             if (datos.getNombre() != null) f.setNombre(datos.getNombre());
             if (datos.getTipo() != null) f.setTipo(datos.getTipo());
