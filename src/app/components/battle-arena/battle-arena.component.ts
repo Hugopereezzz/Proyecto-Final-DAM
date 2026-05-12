@@ -80,6 +80,10 @@ import { Ability } from '../../models/game.models';
               }
             </div>
           </div>
+
+          @if (myFighterIndex !== -1) {
+            <button class="surrender-btn" (click)="surrender()">🏳️ Rendirse / Abandonar</button>
+          }
         </div>
       </div>
     </div>
@@ -142,6 +146,8 @@ import { Ability } from '../../models/game.models';
     .log-status { border-left-color: #94a3b8; }
     .log-turn { color: rgba(255,255,255,0.3); font-weight: 700; }
     .log-msg { color: rgba(255,255,255,0.6); }
+    .surrender-btn { background: rgba(239,68,68,0.15); border: 1px solid #ef4444; border-radius: 10px; padding: 8px; color: #ef4444; font-weight: 800; cursor: pointer; width: 100%; transition: 0.2s; margin-top: 5px; }
+    .surrender-btn:hover { background: rgba(239,68,68,0.4); color: white; }
     @media (max-width: 900px) { .arena-main { grid-template-columns: 1fr; } .fighters-grid[data-cols] { grid-template-columns: repeat(2, 1fr); } }
   `]
 })
@@ -156,6 +162,11 @@ export class BattleArenaComponent {
     if (!ab) return 'Selecciona habilidad';
     return this.game.isSelfAbility(ab) ? 'Usa en ti mismo' : 'Elige objetivo';
   });
+
+  get myFighterIndex(): number {
+    if (!this.game.isMultiplayer()) return this.game.currentFighterIndex();
+    return this.game.fighters().findIndex(f => f.playerName === this.game.loggedInUser() && f.alive);
+  }
 
   constructor() {
     this.socketService.onAccionRecibida().pipe(takeUntilDestroyed()).subscribe(a => {
@@ -192,8 +203,8 @@ export class BattleArenaComponent {
   }
 
   surrender() {
-    if (!this.game.isMyTurn()) return;
-    const idx = this.game.currentFighterIndex();
+    const idx = this.myFighterIndex;
+    if (idx === -1) return;
     this.game.isMultiplayer() ? this.socketService.realizarAccion({ abilityId: 'system_surrender', targetIdx: idx }) : this.game.applySurrender(idx);
   }
 }
