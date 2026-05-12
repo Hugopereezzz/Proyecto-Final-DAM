@@ -7,21 +7,32 @@ import { FactionTemplate } from '../../models/game.models';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="f-card" [class.sel]="selected" [class.dis]="disabled && !selected" (click)="onSelect()" [style.--fc]="faction.color" [style.--ff]="faction.gradientFrom" [style.--ft]="faction.gradientTo">
+    <div class="f-card" [class.sel]="selected" [class.dis]="disabled && !selected"
+      (click)="onSelect()"
+      [style.--fc]="faction.color"
+      [style.--ff]="faction.gradientFrom"
+      [style.--ft]="faction.gradientTo">
+
       <div class="glow"></div>
       <div class="badge" [class.vis]="selected">✓ SELECCIONADA</div>
+
       <div class="body">
         <div class="icon" [innerHTML]="faction.svgIcon"></div>
         <div class="info">
           <h3 class="name">{{ faction.name }}</h3>
           <p class="lore">{{ faction.lore }}</p>
+
+          <!-- Stats (uniform for all factions) -->
           <div class="stats">
-            <div class="s-item"><span>❤️</span><span class="v">{{ faction.baseHp }}</span><span class="l">Vida</span></div>
-            <div class="s-item"><span>🚀</span><span class="v">{{ faction.baseMissiles }}</span><span class="l">Misiles</span></div>
-            <div class="s-item"><span>🛡️</span><span class="v">{{ faction.baseArmor }}</span><span class="l">Armadura</span></div>
+            <div class="s-item"><span>❤️</span><span class="v">500</span><span class="l">Vida</span></div>
+            <div class="s-item"><span>🚀</span><span class="v">50</span><span class="l">Misiles</span></div>
+            <div class="s-item"><span>⏱️</span><span class="v">30s</span><span class="l">Por ronda</span></div>
           </div>
+
+          <!-- Rules pills -->
           <div class="pills">
-            @for (ab of faction.abilities; track ab.id) { <span class="pill" [title]="ab.description">{{ ab.icon }} {{ ab.name }} <span class="c">🚀{{ ab.missileCost }}</span></span> }
+            <span class="pill">⚔️ 1 misil = 1 daño</span>
+            <span class="pill">🛡️ 2 misiles = 1 escudo</span>
           </div>
         </div>
       </div>
@@ -47,14 +58,16 @@ import { FactionTemplate } from '../../models/game.models';
     .s-item .v { font-size: 0.75rem; font-weight: 900; color: #fff; }
     .s-item .l { font-size: 0.5rem; color: rgba(255,255,255,0.4); text-transform: uppercase; }
     .pills { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
-    .pill { font-size: 0.58rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 2px 7px; color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 4px; }
-    .pill .c { color: #fbbf24; font-weight: 700; }
+    .pill { font-size: 0.58rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 2px 7px; color: rgba(255,255,255,0.7); }
   `]
 })
 export class FactionCardComponent {
   @Input() faction!: FactionTemplate;
-  @Input() selected = false;
-  @Input() disabled = false;
-  @Output() selectFaction = new EventEmitter<string>();
-  onSelect() { if (!this.disabled || this.selected) this.selectFaction.emit(this.faction.id); }
+  @Input() selected  = false;
+  @Input() disabled  = false;
+  @Output() selectedChange = new EventEmitter<string>();
+
+  onSelect() {
+    if (!this.disabled || this.selected) this.selectedChange.emit(this.faction.id);
+  }
 }

@@ -20,13 +20,44 @@
 /* ===== CABECERA ===== */
 .deployments-header {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  justify-content: space-between;
   padding: 14px 20px 12px;
   border-bottom: 1px solid var(--neon-cyan-dim);
   background: rgba(0, 240, 255, 0.04);
   flex-shrink: 0;
   z-index: 1;
+}
+
+.header-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.refresh-btn {
+  background: rgba(0, 240, 255, 0.05);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  color: var(--neon-cyan);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.1);
+}
+
+.refresh-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+  transform: rotate(180deg);
+}
+
+.refresh-icon {
+  font-size: 14px;
 }
 
 .cyber-title {

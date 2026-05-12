@@ -55,7 +55,15 @@ public class UsuarioService {
         }).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
     }
 
+    @Transactional
+    public void incrementarVictorias(String nickname) {
+        usuarioRepository.findByNickname(nickname).ifPresent(u -> {
+            u.setVictorias(u.getVictorias() + 1);
+            usuarioRepository.save(u);
+        });
+    }
+
     public List<Usuario> obtenerRanking() {
-        return usuarioRepository.findTop10ByOrderByMonedasDesc();
+        return usuarioRepository.findTop10ByOrderByVictoriasDesc();
     }
 }

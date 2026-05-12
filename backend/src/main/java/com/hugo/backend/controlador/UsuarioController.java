@@ -64,6 +64,13 @@ public class UsuarioController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/incrementar-victorias/{username}")
+    public ResponseEntity<Void> incrementarVictorias(@PathVariable String username) {
+        System.out.println("[API] Incrementando victorias para: " + username);
+        usuarioService.incrementarVictorias(username);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/{id}/facciones")
     public ResponseEntity<List<Faccion>> listarFaccionesUsuario(@PathVariable Long id) {
         return usuarioService.obtenerPorId(id)

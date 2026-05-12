@@ -26,7 +26,7 @@ const io = new Server(server, {
 // En producción esto iría a una base de datos como Redis
 // ============================================================
 
-// Mapa de salas: { codigoSala: { nombre, tipo, jugadores: [], maxJugadores: 4 } }
+// Mapa de salas: { codigoSala: { nombre, tipo, jugadores: [], maxJugadores: 4, enPartida: false } }
 const salas = new Map();
 
 // Mapa de usuarios conectados: { socketId: { nombre, salaActual } }
@@ -45,7 +45,8 @@ function generarCodigoSala() {
 function obtenerSalasPublicas() {
   const salasPublicas = [];
   salas.forEach((sala, codigo) => {
-    if (sala.tipo === 'publica' && sala.jugadores.length < sala.maxJugadores) {
+    // SOLO MOSTRAR SALAS PÚBLICAS QUE NO ESTÉN EN PARTIDA Y NO ESTÉN LLENAS
+    if (sala.tipo === 'publica' && !sala.enPartida && sala.jugadores.length < sala.maxJugadores) {
       salasPublicas.push({
         codigo,
         nombre: sala.nombre,
@@ -109,6 +110,8 @@ io.on('connection', (socket) => {
       tipo,
       host: socket.id,
       maxJugadores: 4,
+      enPartida: false, // Inicialmente no se está jugando
+      planesRonda: {},  // Almacena los planes de cada ronda { socketId: { actorIdx, plan } }
       jugadores: [
         { socketId: socket.id, nombre: usuario.nombre, listo: false }
       ]
@@ -144,6 +147,10 @@ io.on('connection', (socket) => {
     // Validaciones
     if (!sala) {
       socket.emit('error-sala', { mensaje: 'El código de sala no existe.' });
+      return;
+    }
+    if (sala.enPartida) {
+      socket.emit('error-sala', { mensaje: 'No puedes unirte. La partida ya ha comenzado.' });
       return;
     }
     if (sala.jugadores.length >= sala.maxJugadores) {
@@ -289,9 +296,34 @@ io.on('connection', (socket) => {
     const sala = salas.get(usuario.salaActual);
     if (!sala || sala.host !== socket.id) return;
 
-    // Notificar a todos que el juego ha comenzado
-    io.to(usuario.salaActual).emit('juego-iniciado');
-    console.log(`[JUEGO] Partida iniciada en sala ${usuario.salaActual}`);
+    // VALIDACIÓN: Todos deben estar listos para comenzar
+    const todosListos = sala.jugadores.every(j => j.listo);
+    if (!todosListos) {
+      socket.emit('error-sala', { mensaje: 'Todos los operativos deben estar LISTOS.' });
+      return;
+    }
+
+    // VALIDACIÓN: Todos deben haber elegido facción
+    const todosTienenFaccion = sala.jugadores.every(j => !!j.faccionId);
+    if (!todosTienenFaccion) {
+      socket.emit('error-sala', { mensaje: 'Todos los operativos deben ELEGIR FACCIÓN.' });
+      return;
+    }
+
+    if (sala.jugadores.length < 2) {
+      socket.emit('error-sala', { mensaje: 'Se necesitan al menos 2 operativos.' });
+      return;
+    }
+
+    // SALTO DIRECTO A BATALLA
+    sala.enPartida = true; // MARCAR SALA COMO EN PARTIDA
+    io.emit('salas-actualizadas', obtenerSalasPublicas()); // ACTUALIZAR LOBBY GLOBAL
+
+    console.log(`[JUEGO] Iniciando batalla en sala ${usuario.salaActual}`);
+    const ids = sala.jugadores.map(j => j.faccionId);
+    const nombres = sala.jugadores.map(j => j.nombre);
+    const order = ids.map((_, i) => i).sort(() => Math.random() - 0.5);
+    io.to(usuario.salaActual).emit('batalla-comenzada', { ids, order, nombres });
   });
 
   /**
@@ -310,18 +342,11 @@ io.on('connection', (socket) => {
       console.log(`[JUEGO] ${jugador.nombre} eligió facción: ${faccionId}`);
     }
 
-    // Notificar a todos en la sala del cambio (incluyendo la facción elegida)
+    // Notificar a todos en la sala del cambio
     io.to(usuario.salaActual).emit('sala-actualizada', sala);
-
-    // Comprobar si TODOS han elegido facción
-    const todosTienenFaccion = sala.jugadores.every(j => !!j.faccionId);
-    if (todosTienenFaccion && sala.jugadores.length >= 2) {
-      console.log(`[JUEGO] ¡Todos han elegido! Iniciando batalla en sala ${usuario.salaActual}`);
-      const ids = sala.jugadores.map(j => j.faccionId);
-      const nombres = sala.jugadores.map(j => j.nombre);
-      const order = ids.map((_, i) => i).sort(() => Math.random() - 0.5);
-      io.to(usuario.salaActual).emit('batalla-comenzada', { ids, order, nombres });
-    }
+    
+    // NOTA: Se ha eliminado el inicio automático de batalla aquí.
+    // Ahora el host debe pulsar "Lanzar Batalla" manualmente en el cliente.
   });
 
   /**
@@ -348,7 +373,52 @@ io.on('connection', (socket) => {
   socket.on('comenzar-batalla', (datosBatalla) => {
     const usuario = usuarios.get(socket.id);
     if (!usuario || !usuario.salaActual) return;
+    
+    // Resetear planes al empezar
+    const sala = salas.get(usuario.salaActual);
+    if (sala) sala.planesRonda = {};
+    
     io.to(usuario.salaActual).emit('batalla-comenzada', datosBatalla);
+  });
+
+  /**
+   * Recibe el plan de un jugador y lo sincroniza.
+   */
+  socket.on('enviar-plan', ({ actorIdx, plan }) => {
+    const usuario = usuarios.get(socket.id);
+    if (!usuario || !usuario.salaActual) return;
+
+    const sala = salas.get(usuario.salaActual);
+    if (!sala) return;
+
+    // Guardar el plan
+    sala.planesRonda[socket.id] = { actorIdx, plan };
+    
+    console.log(`[PLAN] Sala ${usuario.salaActual}: ${usuario.nombre} envió su plan.`);
+
+    // Notificar a los demás que este jugador está listo (sin enviar el plan todavía)
+    // El frontend usará esto para marcar el "check" verde
+    socket.to(usuario.salaActual).emit('plan-recibido', { actorIdx, plan: null });
+
+    // Si todos han enviado su plan, enviamos todos los planes a la vez para resolver
+    const jugadoresVivos = sala.jugadores.length; // Podríamos filtrar por HP si el server supiera el estado, pero delegamos al front
+    if (Object.keys(sala.planesRonda).length >= jugadoresVivos) {
+      console.log(`[RESOLUCION] Sala ${usuario.salaActual}: Todos los planes recibidos. Enviando resolución.`);
+      
+      // Enviamos el mapa completo de planes a todos
+      const todosLosPlanes = Object.values(sala.planesRonda);
+      
+      // Añadimos un "seed" o un orden aleatorio generado por el servidor para evitar desincronías
+      const seed = Math.random();
+      
+      io.to(usuario.salaActual).emit('ronda-resuelta', { 
+        planes: todosLosPlanes,
+        seed: seed 
+      });
+
+      // Limpiar planes para la siguiente ronda
+      sala.planesRonda = {};
+    }
   });
 
   // ---------------------------------------------------------

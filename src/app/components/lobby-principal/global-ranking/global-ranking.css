@@ -115,7 +115,7 @@
   font-size: 13px;
 }
 
-.trophy { font-size: 11px; }
+.vic-label { font-size: 9px; color: var(--neon-cyan); opacity: 0.6; margin-left: 2px; }
 
 /* ===== ESTADOS ===== */
 .loading-msg, .no-data-msg {

@@ -6,7 +6,6 @@
   <div class="bg-orb orb-2"></div>
   <div class="bg-orb orb-3"></div>
 
-
   <!-- ══ Main Content ══ -->
   <main class="app-main">
     @switch (game.phase()) {
@@ -21,11 +20,13 @@
         <app-lobby-principal [username]="game.loggedInUser() || 'Jugador'" />
       }
 
-      @case ('selection') {
-        <app-faction-select class="phase-enter" />
+      @case ('planning') {
+        <div class="battle-view phase-enter">
+          <app-battle-arena />
+        </div>
       }
 
-      @case ('battle') {
+      @case ('resolving') {
         <div class="battle-view phase-enter">
           <app-battle-arena />
         </div>

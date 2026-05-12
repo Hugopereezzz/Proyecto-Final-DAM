@@ -31,6 +31,7 @@ public class Usuario {
     private String email;
 
     private int monedas = 0;
+    private int victorias = 0;
 
     @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Faccion> facciones = new ArrayList<>();
@@ -49,6 +50,8 @@ public class Usuario {
     public void setEmail(String email) { this.email = email; }
     public int getMonedas() { return monedas; }
     public void setMonedas(int monedas) { this.monedas = monedas; }
+    public int getVictorias() { return victorias; }
+    public void setVictorias(int victorias) { this.victorias = victorias; }
     public List<Faccion> getFacciones() { return facciones; }
     public void setFacciones(List<Faccion> facciones) { this.facciones = facciones; }
 }

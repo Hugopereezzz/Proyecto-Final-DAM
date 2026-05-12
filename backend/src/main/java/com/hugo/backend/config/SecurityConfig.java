@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/h2-console/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/usuarios/registro", "/api/usuarios/login").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/usuarios/ranking").permitAll()
+                        .requestMatchers("/api/usuarios/ranking", "/api/usuarios/incrementar-victorias/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )

@@ -1,10 +1,15 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { GameService } from '../../services/game.service';
 import { SocketService } from '../../services/socket.service';
 import { FighterCardComponent } from '../fighter-card/fighter-card.component';
-import { Ability } from '../../models/game.models';
+import { PlayerPlan, AttackAssignment } from '../../models/game.models';
+
+interface DraftPlan {
+  attacks: { [targetIdx: number]: number };
+  shieldMissiles: number;
+}
 
 @Component({
   selector: 'app-battle-arena',
@@ -12,188 +17,425 @@ import { Ability } from '../../models/game.models';
   imports: [CommonModule, FighterCardComponent],
   template: `
     <div class="arena-wrap">
-      <div class="turn-banner">
-        <div class="turn-meta">
-          <span class="turn-num">T{{ game.turnNumber() }}</span>
-          <span class="acting-name" [style.color]="game.currentFighter().color">{{ game.currentFighter().name }}</span>
+
+      <!-- ══ Top bar ══ -->
+      <div class="top-bar">
+        <div class="round-badge">
+          <span class="rb-label">RONDA</span>
+          <span class="rb-num">{{ game.roundNumber() }}</span>
         </div>
-        @if (!socketService.estaConectado()) {
-          <div class="connection-warning">⚠️ <button (click)="socketService.conectar(game.loggedInUser() || 'Player')">Reconectar</button></div>
-        }
-        <div class="order-strip">
-          @for (idx of game.turnOrder(); track idx) {
-            <div class="order-chip" [class.active]="idx === game.currentFighterIndex()" [class.dead]="!game.fighters()[idx].alive" [style.border-color]="game.fighters()[idx].color">
-              <span class="o-icon" [innerHTML]="game.fighters()[idx].svgIcon"></span>
-              <span class="o-name">{{ game.fighters()[idx].name }}</span>
+
+        <div class="timer-track" [class.urgent]="game.planningTimeLeft() <= 10 && game.phase() === 'planning'">
+          <div class="timer-fill" [style.width.%]="timerPct()"></div>
+          <span class="timer-txt">
+            {{ game.phase() === 'planning' ? game.planningTimeLeft() + 's' : '⚔️ RESOLVIENDO' }}
+          </span>
+        </div>
+
+        <div class="chips-row">
+          @for (f of game.fighters(); track f.factionId) {
+            <div class="chip" [class.confirmed]="f.planConfirmed" [class.dead]="!f.alive" [style.--c]="f.color">
+              <span class="chip-name">{{ f.name }}</span>
+              <span class="chip-ico">{{ !f.alive ? '💥' : f.planConfirmed ? '✅' : '⏳' }}</span>
             </div>
           }
         </div>
       </div>
 
-      <div class="arena-main">
-        <div class="fighters-grid" [attr.data-cols]="game.fighters().length">
-          @for (f of game.fighters(); track f.factionId; let i = $index) {
-            <app-fighter-card [fighter]="f" [fighterIndex]="i" [isActive]="i === game.currentFighterIndex()" [userTurn]="game.isMyTurn()" [isTargetable]="isTargetable(i)" (targetSelected)="performAction(i)" />
-          }
-        </div>
-
-        <div class="action-panel" [style.--actor-color]="game.currentFighter().color">
-          <div class="actor-header">
-            <div class="actor-icon" [innerHTML]="game.currentFighter().svgIcon"></div>
-            <div class="actor-info">
-              <div class="actor-name" [style.color]="game.currentFighter().color">{{ game.currentFighter().name }}</div>
-              <div class="actor-missiles">🚀 {{ game.currentFighter().missiles }}/{{ game.currentFighter().maxMissiles }}</div>
-              <div class="actor-instruction">{{ instruction() }}</div>
-            </div>
-            @if (selectedAbility()) { <button class="cancel-btn" (click)="selectedAbility.set(null)">✕</button> }
-          </div>
-
-          <div class="abilities-list" [class.turn-lock]="!game.isMyTurn()">
-            @for (ab of game.currentFighter().abilities; track ab.id) {
-              <button class="ability-btn" [class.selected]="selectedAbility()?.id === ab.id" [disabled]="!game.isMyTurn() || ab.currentCooldown > 0 || game.currentFighter().missiles < ab.missileCost" (click)="selectAbility(ab)" [title]="ab.description">
-                <span class="ab-icon">{{ ab.icon }}</span>
-                <div class="ab-body">
-                  <div class="ab-top">
-                    <span class="ab-name">{{ ab.name }}</span>
-                    <span class="ab-cost">🚀{{ ab.missileCost }}</span>
-                    @if (ab.currentCooldown > 0) { <span class="ab-cd">⏳{{ ab.currentCooldown }}</span> }
-                  </div>
-                  <div class="ab-desc">{{ ab.description }}</div>
-                </div>
-              </button>
-            }
-          </div>
-
-          @if (selectedAbility() && game.isSelfAbility(selectedAbility()!) && game.isMyTurn()) {
-            <button class="fire-self-btn" (click)="performAction(game.currentFighterIndex())">✨ Usar {{ selectedAbility()!.name }}</button>
-          }
-
-          <div class="log-section">
-            <div class="log-title">📡 LOG</div>
-            <div class="log-list">
-              @for (entry of game.battleLog().slice(0, 5); track $index) {
-                <div class="log-row" [class]="'log-' + entry.type">
-                  <span class="log-turn">T{{ entry.turn }}</span>
-                  <span class="log-icon">{{ entry.abilityIcon }}</span>
-                  <span class="log-msg">{{ entry.message }}</span>
+      <!-- ══ Resolving overlay ══ -->
+      @if (game.phase() === 'resolving') {
+        <div class="resolving-overlay">
+          <div class="resolving-card">
+            <div class="spin-ico">⚔️</div>
+            <div class="res-title">RESOLVIENDO RONDA {{ game.roundNumber() }}</div>
+            <div class="res-sub">Calculando impactos y escudos...</div>
+            <div class="res-log">
+              @for (e of game.battleLog().slice(0, 10); track $index) {
+                <div class="rl-row" [class]="'rl-' + e.type">
+                  <span>{{ e.icon }}</span><span>{{ e.message }}</span>
                 </div>
               }
             </div>
           </div>
         </div>
-      </div>
+      }
+
+      <!-- ══ Planning content ══ -->
+      @if (game.phase() === 'planning') {
+        <div class="arena-main">
+
+          <!-- Fighter cards -->
+          <div class="fighters-grid" [attr.data-cols]="game.fighters().length">
+            @for (f of game.fighters(); track f.factionId; let i = $index) {
+              <app-fighter-card [fighter]="f" [fighterIndex]="i" [isPlanning]="i === activeFighterIdx()" />
+            }
+          </div>
+
+            <!-- ── Plan panel ── -->
+            <div class="plan-panel" [style.--pc]="activeFighter().color || '#00f0ff'">
+              
+              @if (canPlan()) {
+                <!-- Fighter tabs (local only) -->
+                @if (!game.isMultiplayer()) {
+                  <div class="tabs">
+                    @for (f of game.fighters(); track f.factionId; let i = $index) {
+                      @if (f.alive) {
+                        <button class="tab" [class.active]="activeTab() === i" [class.done]="f.planConfirmed"
+                          [style.border-color]="f.color" (click)="setTab(i)">
+                          <span class="tab-ico" [innerHTML]="f.svgIcon"></span>
+                          <span>{{ f.name }}</span>
+                          @if (f.planConfirmed) { <span>✅</span> }
+                        </button>
+                      }
+                    }
+                  </div>
+                }
+
+                <!-- Missile budget -->
+                <div class="budget" [class.over]="missilesLeft() < 0">
+                  <span class="bud-label">🚀 MISILES DISPONIBLES</span>
+                  <span class="bud-val" [class.zero]="missilesLeft() === 0">{{ missilesLeft() }} / 50</span>
+                  <div class="bud-bar-track">
+                    <div class="bud-bar" [style.width.%]="(missilesLeft() / 50) * 100"></div>
+                  </div>
+                </div>
+
+                <!-- Attacks -->
+                <div class="section">
+                  <div class="sec-title">⚔️ ATACAR <span class="sec-hint">(1 misil = 1 daño)</span></div>
+                  @for (f of game.fighters(); track f.factionId; let i = $index) {
+                    @if (f.alive && i !== activeFighterIdx()) {
+                      <div class="atk-row">
+                        <div class="atk-target">
+                          <span class="atk-dot" [style.background]="f.color"></span>
+                          <span class="atk-name">{{ f.name }}</span>
+                        </div>
+                        <div class="counter">
+                          <button class="cnt-btn" (click)="decAtk(i)" [disabled]="getAtk(i) <= 0 || confirmed()">−</button>
+                          <span class="cnt-val">{{ getAtk(i) }}</span>
+                          <button class="cnt-btn" (click)="incAtk(i)" [disabled]="missilesLeft() <= 0 || confirmed()">+</button>
+                        </div>
+                        <span class="atk-dmg">💥 {{ getAtk(i) }} dmg</span>
+                      </div>
+                    }
+                  }
+                </div>
+
+                <!-- Shield -->
+                <div class="section">
+                  <div class="sec-title">🛡️ DEFENDER <span class="sec-hint">(2 misiles = 1 escudo)</span></div>
+                  <div class="shield-row">
+                    <button class="cnt-btn" (click)="decShield()" [disabled]="draftShield() < 2 || confirmed()">−</button>
+                    <div class="shield-info">
+                      <span class="cnt-val">{{ draftShield() }} misiles</span>
+                      <span class="shield-pts">→ {{ shieldPts() }} puntos de escudo</span>
+                    </div>
+                    <button class="cnt-btn" (click)="incShield()" [disabled]="missilesLeft() < 2 || confirmed()">+</button>
+                  </div>
+                </div>
+
+                <!-- Confirm button -->
+                @if (!confirmed()) {
+                  <button class="confirm-btn" [disabled]="missilesLeft() < 0" (click)="confirmPlan()">
+                    🚀 CONFIRMAR PLAN
+                  </button>
+                } @else {
+                  <div class="confirmed-msg">✅ Plan enviado — esperando a los demás...</div>
+                }
+
+                <!-- Surrender -->
+                <button class="surrender-btn" 
+                  [disabled]="!activeFighter().alive || confirmed()" 
+                  (click)="surrender()">🏳️ Rendirse</button>
+
+              } @else {
+                <!-- Eliminated / Spectator view -->
+                <div class="eliminated-panel">
+                  <div class="elim-ico">💀</div>
+                  <div class="elim-title">ESTÁS FUERA DE COMBATE</div>
+                  <div class="elim-txt">
+                    @if (activeFighter().surrendered) {
+                      Has abandonado el combate. Puedes seguir observando o retirarte.
+                    } @else {
+                      Tu base ha sido destruida. Observa el final de la batalla.
+                    }
+                  </div>
+                  <button class="abandon-btn" (click)="game.abandonGame()">🚪 ABANDONAR PARTIDA</button>
+                </div>
+              }
+
+              <!-- Mini log -->
+              <div class="mini-log">
+                <div class="log-title">📡 LOG</div>
+                @for (e of game.battleLog().slice(0, 6); track $index) {
+                  <div class="log-row" [class]="'lr-' + e.type">
+                    <span class="lr-r">R{{ e.round }}</span>
+                    <span>{{ e.icon }}</span>
+                    <span class="lr-m">{{ e.message }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+        </div>
+      }
     </div>
   `,
   styles: [`
     .arena-wrap { display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: hidden; }
-    .turn-banner { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 10px 18px; display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
-    .turn-meta { display: flex; align-items: baseline; gap: 8px; }
-    .turn-num { font-size: 0.7rem; font-weight: 800; color: rgba(255,255,255,0.4); }
-    .acting-name { font-size: 1rem; font-weight: 900; }
-    .connection-warning { background: rgba(255,0,0,0.2); border: 1px solid #f44; color: #f44; padding: 5px 12px; border-radius: 20px; font-size: 0.7rem; margin-left: auto; display: flex; gap: 8px; animation: blink 1s infinite alternate; }
-    @keyframes blink { from { opacity: 0.6; } to { opacity: 1; } }
-    .connection-warning button { background: #f44; border: none; color: #fff; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
-    .order-strip { display: flex; gap: 6px; flex: 1; }
-    .order-chip { display: flex; align-items: center; gap: 4px; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 3px 8px; background: rgba(0,0,0,0.3); transition: 0.3s; }
-    .order-chip.active { background: rgba(255,255,255,0.1); box-shadow: 0 0 10px currentColor; }
-    .order-chip.dead { opacity: 0.2; filter: grayscale(1); }
-    .o-icon { width: 18px; height: 18px; }
-    .o-icon ::ng-deep svg { width: 100%; height: 100%; }
-    .o-name { font-size: 0.55rem; font-weight: 700; color: rgba(255,255,255,0.7); }
-    .arena-main { display: grid; grid-template-columns: 1fr 320px; gap: 12px; flex: 1; min-height: 0; }
+
+    /* Top bar */
+    .top-bar { display: flex; align-items: center; gap: 14px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 10px 18px; flex-shrink: 0; }
+    .round-badge { display: flex; flex-direction: column; align-items: center; min-width: 48px; }
+    .rb-label { font-size: 0.52rem; font-weight: 900; letter-spacing: 0.15em; color: rgba(255,255,255,0.35); }
+    .rb-num { font-size: 1.4rem; font-weight: 900; color: #fff; line-height: 1; }
+    .timer-track { flex: 1; height: 22px; background: rgba(255,255,255,0.06); border-radius: 12px; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+    .timer-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #00d4ff); border-radius: 12px; transition: width 1s linear; }
+    .timer-track.urgent .timer-fill { background: linear-gradient(90deg, #ef4444, #f97316); animation: pulse-bar 0.7s ease-in-out infinite; }
+    @keyframes pulse-bar { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    .timer-txt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 900; color: #fff; text-shadow: 0 0 6px #000; }
+    .chips-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { display: flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; border: 1.5px solid var(--c, rgba(255,255,255,0.2)); background: rgba(0,0,0,0.3); transition: 0.3s; }
+    .chip.confirmed { background: rgba(34,197,94,0.12); border-color: #22c55e; }
+    .chip.dead { opacity: 0.25; filter: grayscale(1); }
+    .chip-name { font-size: 0.58rem; font-weight: 700; color: rgba(255,255,255,0.7); }
+    .chip-ico { font-size: 0.7rem; }
+
+    /* Resolving overlay */
+    .resolving-overlay { position: absolute; inset: 0; z-index: 10; background: rgba(0,0,10,0.85); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); border-radius: 16px; }
+    .resolving-card { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; max-width: 560px; width: 100%; }
+    .spin-ico { font-size: 3rem; animation: spin-ico 1.2s ease-in-out infinite; }
+    @keyframes spin-ico { 0%,100%{transform:scale(1) rotate(-10deg)} 50%{transform:scale(1.15) rotate(10deg)} }
+    .res-title { font-size: 1.4rem; font-weight: 900; color: #fff; letter-spacing: 0.1em; text-align: center; }
+    .res-sub { font-size: 0.75rem; color: rgba(255,255,255,0.45); }
+    .res-log { width: 100%; display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; }
+    .rl-row { display: flex; gap: 8px; padding: 6px 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 0.68rem; color: rgba(255,255,255,0.75); animation: slide-in .3s ease; }
+    @keyframes slide-in { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:none} }
+    .rl-attack { border-left: 2px solid #ef4444; }
+    .rl-shield { border-left: 2px solid #60a5fa; }
+    .rl-death  { border-left: 2px solid #6b7280; background: rgba(239,68,68,0.1); }
+    .rl-status,.rl-round_start,.rl-resolve { border-left: 2px solid #94a3b8; }
+
+    /* Main area */
+    .arena-main { display: grid; grid-template-columns: 1fr 340px; gap: 12px; flex: 1; min-height: 0; position: relative; }
     .fighters-grid { display: grid; gap: 10px; overflow-y: auto; align-content: start; grid-template-columns: repeat(2, 1fr); }
-    .fighters-grid[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
-    .fighters-grid[data-cols="4"],.fighters-grid[data-cols="5"],.fighters-grid[data-cols="6"],.fighters-grid[data-cols="7"],.fighters-grid[data-cols="8"] { grid-template-columns: repeat(4, 1fr); }
-    .action-panel { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-    .actor-header { display: flex; align-items: center; gap: 10px; }
-    .actor-icon { width: 44px; height: 44px; filter: drop-shadow(0 0 8px var(--actor-color)); }
-    .actor-icon ::ng-deep svg { width: 100%; height: 100%; }
-    .actor-info { flex: 1; min-width: 0; }
-    .actor-name { font-size: 0.9rem; font-weight: 900; }
-    .actor-missiles { font-size: 0.65rem; color: #fbbf24; font-weight: 700; }
-    .actor-instruction { font-size: 0.6rem; color: rgba(255,255,255,0.4); }
-    .cancel-btn { background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #ef4444; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
-    .abilities-list { display: flex; flex-direction: column; gap: 6px; }
-    .abilities-list.turn-lock { pointer-events: none; opacity: 0.7; }
-    .ability-btn { display: flex; gap: 10px; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 10px; cursor: pointer; color: #fff; transition: 0.2s; width: 100%; text-align: left; }
-    .ability-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); border-color: var(--actor-color); }
-    .ability-btn.selected { background: rgba(255,255,255,0.14); border-color: var(--actor-color); box-shadow: 0 0 10px var(--actor-color); }
-    .ability-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    .ab-icon { font-size: 1.2rem; }
-    .ab-body { flex: 1; }
-    .ab-top { display: flex; align-items: center; gap: 6px; }
-    .ab-name { font-size: 0.75rem; font-weight: 800; }
-    .ab-cost,.ab-cd { font-size: 0.6rem; font-weight: 700; color: #fbbf24; }
-    .ab-cd { color: #f97316; }
-    .ab-desc { font-size: 0.58rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
-    .fire-self-btn { background: var(--actor-color); border: none; border-radius: 10px; padding: 10px; color: #000; font-weight: 900; cursor: pointer; width: 100%; }
-    .log-section { flex: 1; display: flex; flex-direction: column; gap: 4px; min-height: 0; }
-    .log-title { font-size: 0.6rem; font-weight: 800; color: rgba(255,255,255,0.3); }
-    .log-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-    .log-row { display: flex; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 0.58rem; background: rgba(0,0,0,0.2); border-left: 2px solid rgba(255,255,255,0.1); animation: log-in .3s ease; }
-    @keyframes log-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-    .log-missile,.log-snipe { border-left-color: #ef4444; }
-    .log-burst { border-left-color: #f97316; }
-    .log-aoe { border-left-color: #a855f7; }
-    .log-drain { border-left-color: #ec4899; }
-    .log-shield { border-left-color: #60a5fa; }
-    .log-reload { border-left-color: #22c55e; }
-    .log-death { border-left-color: #6b7280; background: rgba(239,68,68,0.1); }
-    .log-status { border-left-color: #94a3b8; }
-    .log-turn { color: rgba(255,255,255,0.3); font-weight: 700; }
-    .log-msg { color: rgba(255,255,255,0.6); }
-    @media (max-width: 900px) { .arena-main { grid-template-columns: 1fr; } .fighters-grid[data-cols] { grid-template-columns: repeat(2, 1fr); } }
+    .fighters-grid[data-cols="3"] { grid-template-columns: repeat(3,1fr); }
+    .fighters-grid[data-cols="4"],.fighters-grid[data-cols="5"],.fighters-grid[data-cols="6"],.fighters-grid[data-cols="7"],.fighters-grid[data-cols="8"] { grid-template-columns: repeat(4,1fr); }
+
+    /* Plan panel */
+    .plan-panel { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab { display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 5px 10px; cursor: pointer; color: rgba(255,255,255,0.55); font-size: 0.65rem; font-weight: 700; transition: 0.2s; }
+    .tab:hover { background: rgba(255,255,255,0.09); color: #fff; }
+    .tab.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: 0 0 10px var(--pc); }
+    .tab.done { opacity: 0.5; }
+    .tab-ico { width: 16px; height: 16px; }
+    .tab-ico ::ng-deep svg { width: 100%; height: 100%; }
+
+    /* Budget */
+    .budget { display: flex; flex-direction: column; gap: 4px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px 12px; }
+    .budget.over { background: rgba(239,68,68,0.1); border: 1px solid #ef4444; }
+    .bud-label { font-size: 0.6rem; font-weight: 800; color: rgba(255,255,255,0.4); letter-spacing: 0.1em; }
+    .bud-val { font-size: 1.2rem; font-weight: 900; color: #fff; }
+    .bud-val.zero { color: rgba(255,255,255,0.3); }
+    .bud-bar-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+    .bud-bar { height: 100%; background: linear-gradient(90deg, var(--pc), #fff); border-radius: 4px; transition: width 0.3s; }
+
+    /* Sections */
+    .section { display: flex; flex-direction: column; gap: 7px; }
+    .sec-title { font-size: 0.65rem; font-weight: 900; color: rgba(255,255,255,0.55); letter-spacing: 0.12em; }
+    .sec-hint { font-weight: 400; color: rgba(255,255,255,0.3); font-size: 0.58rem; }
+
+    /* Attack rows */
+    .atk-row { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 6px 10px; }
+    .atk-target { display: flex; align-items: center; gap: 6px; flex: 1; }
+    .atk-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .atk-name { font-size: 0.68rem; font-weight: 700; color: rgba(255,255,255,0.8); }
+    .atk-dmg { font-size: 0.58rem; color: #ef4444; font-weight: 700; min-width: 48px; text-align: right; }
+
+    /* Counter */
+    .counter { display: flex; align-items: center; gap: 6px; }
+    .cnt-btn { width: 24px; height: 24px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.15s; line-height: 1; }
+    .cnt-btn:hover:not(:disabled) { background: var(--pc); border-color: var(--pc); }
+    .cnt-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+    .cnt-val { font-size: 0.85rem; font-weight: 900; color: #fff; min-width: 24px; text-align: center; }
+
+    /* Shield */
+    .shield-row { display: flex; align-items: center; gap: 10px; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.2); border-radius: 8px; padding: 8px 12px; }
+    .shield-info { display: flex; flex-direction: column; flex: 1; align-items: center; }
+    .shield-pts { font-size: 0.6rem; color: #93c5fd; font-weight: 700; }
+
+    /* Confirm */
+    .confirm-btn { background: linear-gradient(135deg, var(--pc), rgba(255,255,255,0.2)); border: none; border-radius: 12px; padding: 12px; color: #000; font-weight: 900; font-size: 0.85rem; cursor: pointer; width: 100%; letter-spacing: 0.06em; transition: 0.2s; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+    .confirm-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+    .confirm-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .confirmed-msg { background: rgba(34,197,94,0.12); border: 1px solid #22c55e; border-radius: 12px; padding: 12px; text-align: center; font-size: 0.75rem; font-weight: 700; color: #22c55e; }
+    .surrender-btn { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 7px; color: #ef4444; font-size: 0.65rem; cursor: pointer; width: 100%; transition: 0.2s; margin-top: 5px; }
+    .surrender-btn:hover { background: rgba(239,68,68,0.2); }
+
+    .eliminated-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1); }
+    .elim-ico { font-size: 2.5rem; filter: drop-shadow(0 0 10px #ef4444); }
+    .elim-title { font-size: 1rem; font-weight: 900; color: #ef4444; letter-spacing: 0.1em; }
+    .elim-txt { font-size: 0.7rem; color: rgba(255,255,255,0.5); line-height: 1.4; }
+    .abandon-btn { background: #fff; color: #000; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 900; font-size: 0.7rem; cursor: pointer; transition: 0.2s; }
+    .abandon-btn:hover { background: #ef4444; color: #fff; transform: translateY(-2px); }
+
+    /* Mini log */
+    .mini-log { flex: 1; display: flex; flex-direction: column; gap: 3px; min-height: 0; }
+    .log-title { font-size: 0.58rem; font-weight: 800; color: rgba(255,255,255,0.25); letter-spacing: 0.1em; margin-bottom: 2px; }
+    .log-row { display: flex; gap: 5px; padding: 3px 6px; border-radius: 5px; font-size: 0.55rem; background: rgba(0,0,0,0.2); }
+    .lr-attack { border-left: 2px solid #ef4444; }
+    .lr-shield { border-left: 2px solid #60a5fa; }
+    .lr-death  { border-left: 2px solid #6b7280; }
+    .lr-status,.lr-round_start,.lr-resolve { border-left: 2px solid #94a3b8; }
+    .lr-r { color: rgba(255,255,255,0.3); font-weight: 700; }
+    .lr-m { color: rgba(255,255,255,0.6); }
+
+    @media (max-width: 900px) {
+      .arena-main { grid-template-columns: 1fr; }
+      .fighters-grid[data-cols] { grid-template-columns: repeat(2,1fr); }
+    }
   `]
 })
 export class BattleArenaComponent {
-  game = inject(GameService);
+  game          = inject(GameService);
   socketService = inject(SocketService);
-  selectedAbility = signal<Ability | null>(null);
 
-  instruction = computed(() => {
-    const ab = this.selectedAbility();
-    if (!this.game.isMyTurn()) return `Esperando a ${this.game.currentFighter().playerName}...`;
-    if (!ab) return 'Selecciona habilidad';
-    return this.game.isSelfAbility(ab) ? 'Usa en ti mismo' : 'Elige objetivo';
+  activeTab   = signal<number>(0);
+  draftPlans  = signal<{ [fighterIdx: number]: DraftPlan }>({});
+
+  // ── Derived ──────────────────────────────────────────────────────
+  activeFighterIdx = computed(() =>
+    this.game.isMultiplayer() ? this.game.myFighterIdx() : this.activeTab()
+  );
+
+  activeFighter = computed(() => this.game.fighters()[this.activeFighterIdx()]);
+
+  activeDraft = computed<DraftPlan>(() =>
+    this.draftPlans()[this.activeFighterIdx()] ?? { attacks: {}, shieldMissiles: 0 }
+  );
+
+  missilesUsed = computed(() => {
+    const d = this.activeDraft();
+    return Object.values(d.attacks).reduce((s, m) => s + (m as number), 0) + d.shieldMissiles;
   });
 
+  missilesLeft = computed(() => 50 - this.missilesUsed());
+  shieldPts    = computed(() => Math.floor(this.activeDraft().shieldMissiles / 2));
+  timerPct     = computed(() => (this.game.planningTimeLeft() / 30) * 100);
+
+  confirmed = computed(() => this.game.fighters()[this.activeFighterIdx()]?.planConfirmed ?? false);
+  canPlan   = computed(() => this.activeFighter()?.alive && !this.game.winner());
+
   constructor() {
+    // Auto-move to first alive unconfirmed tab when fighters change
+    effect(() => {
+      const fighters = this.game.fighters();
+      const cur = this.activeTab();
+      if (!fighters[cur]?.alive || fighters[cur]?.planConfirmed) {
+        const next = fighters.findIndex((f, i) => i !== cur && f.alive && !f.planConfirmed);
+        if (next >= 0) this.activeTab.set(next);
+      }
+    });
+
+    // Reset drafts on new round
+    effect(() => {
+      this.game.roundNumber(); // subscribe
+      this.draftPlans.set({});
+      const firstAlive = this.game.fighters().findIndex(f => f.alive);
+      if (firstAlive >= 0) this.activeTab.set(firstAlive);
+    });
+
+    // Multiplayer: receive plan confirmations from server (to show green checks)
+    this.socketService.onPlanRecibido().pipe(takeUntilDestroyed()).subscribe(data => {
+      this.game.submitPlan(data.actorIdx, data.plan);
+    });
+
+    // Multiplayer: receive final resolution from server
+    this.socketService.onRondaResuelta().pipe(takeUntilDestroyed()).subscribe(data => {
+      console.log('Resolución recibida del servidor:', data);
+      this.game.resolveMultiplayerRound(data.planes, data.seed);
+    });
+
+    // Multiplayer: receive special actions (like surrender)
     this.socketService.onAccionRecibida().pipe(takeUntilDestroyed()).subscribe(a => {
       if (a.abilityId === 'system_surrender') {
         this.game.applySurrender(a.targetIdx);
-      } else {
-        this.game.useAbility(a.abilityId, a.targetIdx, a.extra);
       }
     });
   }
 
-  isTargetable(idx: number) {
-    const ab = this.selectedAbility();
-    return this.game.isMyTurn() && !!ab && !this.game.isSelfAbility(ab) && this.game.getValidTargets(ab).includes(idx);
+  // ── Getters ───────────────────────────────────────────────────────
+  getAtk(targetIdx: number): number {
+    return (this.activeDraft().attacks[targetIdx] as number) ?? 0;
   }
 
-  selectAbility(ab: Ability) { this.selectedAbility.set(this.selectedAbility()?.id === ab.id ? null : ab); }
+  draftShield(): number { return this.activeDraft().shieldMissiles; }
 
-  performAction(targetIdx: number) {
-    const ab = this.selectedAbility();
-    if (!ab) return;
+  // ── Mutations ─────────────────────────────────────────────────────
+  private patchDraft(patch: Partial<DraftPlan>) {
+    const fi = this.activeFighterIdx();
+    const cur = this.activeDraft();
+    this.draftPlans.update(dp => ({ ...dp, [fi]: { ...cur, ...patch } }));
+  }
 
-    const extra: any = {};
-    if (this.game.currentFighter().factionId === 'storm_legion') {
-      extra.costFree = Math.random() < 0.15;
-    }
+  incAtk(targetIdx: number) {
+    if (this.missilesLeft() <= 0) return;
+    const cur = this.getAtk(targetIdx);
+    this.patchDraft({ attacks: { ...this.activeDraft().attacks, [targetIdx]: cur + 1 } });
+  }
+
+  decAtk(targetIdx: number) {
+    const cur = this.getAtk(targetIdx);
+    if (cur <= 0) return;
+    this.patchDraft({ attacks: { ...this.activeDraft().attacks, [targetIdx]: cur - 1 } });
+  }
+
+  incShield() {
+    if (this.missilesLeft() < 2) return;
+    this.patchDraft({ shieldMissiles: this.activeDraft().shieldMissiles + 2 });
+  }
+
+  decShield() {
+    const cur = this.activeDraft().shieldMissiles;
+    if (cur < 2) return;
+    this.patchDraft({ shieldMissiles: cur - 2 });
+  }
+
+  setTab(i: number) {
+    if (!this.game.isMultiplayer()) this.activeTab.set(i);
+  }
+
+  // ── Confirm plan ──────────────────────────────────────────────────
+  confirmPlan() {
+    const fi = this.activeFighterIdx();
+    const draft = this.activeDraft();
+
+    const attacks: AttackAssignment[] = Object.entries(draft.attacks)
+      .filter(([, m]) => (m as number) > 0)
+      .map(([ti, m]) => ({ targetIdx: +ti, missiles: m as number }));
+
+    const totalSpent = attacks.reduce((s, a) => s + a.missiles, 0) + draft.shieldMissiles;
+
+    const plan: PlayerPlan = {
+      actorIdx: fi, attacks,
+      shieldMissiles: draft.shieldMissiles,
+      totalSpent, confirmed: true,
+    };
 
     if (this.game.isMultiplayer()) {
-      this.socketService.realizarAccion({ abilityId: ab.id, targetIdx, extra });
-    } else {
-      this.game.useAbility(ab.id, targetIdx, extra);
+      this.socketService.enviarPlan(fi, plan);
     }
-    this.selectedAbility.set(null);
+    this.game.submitPlan(fi, plan);
   }
 
+  // ── Surrender ─────────────────────────────────────────────────────
   surrender() {
-    if (!this.game.isMyTurn()) return;
-    const idx = this.game.currentFighterIndex();
-    this.game.isMultiplayer() ? this.socketService.realizarAccion({ abilityId: 'system_surrender', targetIdx: idx }) : this.game.applySurrender(idx);
+    const idx = this.activeFighterIdx();
+    if (this.game.isMultiplayer()) {
+      this.socketService.realizarAccion({ abilityId: 'system_surrender', targetIdx: idx });
+    }
+    this.game.applySurrender(idx);
   }
 }

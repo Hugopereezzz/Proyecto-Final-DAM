@@ -25,4 +25,6 @@ export class AvailableLobbiesComponent implements OnInit {
   ngOnInit() { this.ss.pedirSalas(); }
 
   unirseASala(codigo: string) { this.ss.unirseSala(codigo); }
+
+  refrescar() { this.ss.pedirSalas(); }
 }

@@ -38,7 +38,7 @@ import { GameService } from '../../services/game.service';
         </div>
         <div class="ctrls">
           <button class="btn ok" (click)="ss.cambiarListo()" [class.r]="mj?.listo">{{ mj?.listo?'✅ LISTO':'LISTO' }}</button>
-          @if (soyH) { <button class="btn go" [disabled]="!allR || (s?.jugadores?.length||0)<2" (click)="ss.iniciarJuego()">🚀 INICIAR</button> }
+          @if (soyH) { <button class="btn go" [disabled]="!allR || !allF || (s?.jugadores?.length||0)<2" (click)="ss.iniciarJuego()">🚀 INICIAR</button> }
           <button class="btn out" (click)="out()">SALIR</button>
         </div>
       </div>
@@ -95,7 +95,8 @@ export class SalaJuegoComponent implements OnInit {
   constructor() {
     this.ss.onSalaActualizada().pipe(takeUntilDestroyed()).subscribe(s => this.s = s);
     this.ss.onMensajeSala().pipe(takeUntilDestroyed()).subscribe(m => { this.msgs.push(m); this.scroll(); });
-    this.ss.onJuegoIniciado().pipe(takeUntilDestroyed()).subscribe(() => { this.gs.isMultiplayer.set(true); this.gs.phase.set('selection'); });
+    // This phase is no longer used
+    // this.ss.onJuegoIniciado().pipe(takeUntilDestroyed()).subscribe((data) => { ... });
     this.ss.onBatallaComenzada().pipe(takeUntilDestroyed()).subscribe(d => { this.gs.isMultiplayer.set(true); this.gs.startBattle(d.ids, d.order, d.nombres); });
   }
 
@@ -106,6 +107,7 @@ export class SalaJuegoComponent implements OnInit {
 
   get soyH() { return this.s?.host === this.ss.getMiSocketId(); }
   get allR() { return this.s?.jugadores.every(j => j.listo) || false; }
+  get allF() { return this.s?.jugadores.every(j => !!j.faccionId) || false; }
   get mj() { return this.s?.jugadores.find(j => j.socketId === this.ss.getMiSocketId()); }
   f(id: string) { return this.gs.factions.find(f => f.id === id); }
   isTk(id: string) { return this.s?.jugadores.some(j => j.faccionId === id && j.socketId !== this.ss.getMiSocketId()) || false; }

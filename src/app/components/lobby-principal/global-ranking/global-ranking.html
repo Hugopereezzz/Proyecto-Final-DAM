@@ -23,6 +23,6 @@
     [class.top3]="i===2">
     <span class="col-rank">{{ i + 1 }}.</span>
     <span class="col-name">{{ usuario.nombreUsuario }}</span>
-    <span class="col-score"><span class="trophy">🏆</span> {{ usuario.victorias }}</span>
+    <span class="col-score">{{ usuario.victorias || 0 }}</span>
   </div>
 </div>

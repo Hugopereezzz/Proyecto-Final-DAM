@@ -1,28 +1,32 @@
-export type AbilityType = 'missile' | 'burst' | 'shield' | 'reload' | 'snipe' | 'aoe' | 'drain';
+// ── Action types (simplified) ──────────────────────────────────────
+export type ActionType = 'attack' | 'shield' | 'death' | 'status' | 'round_start' | 'resolve';
 
-export interface Ability {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  type: AbilityType;
-  damage?: number;          // direct damage
-  missileCost: number;      // missiles consumed
-  healHp?: number;          // HP recovered (reload/repair)
-  reloadMissiles?: number;  // missiles restored
-  shieldAmount?: number;    // temp HP shield
-  aoeDamage?: number;       // flat AOE damage ignoring defense
-  cooldown: number;
-  currentCooldown: number;
+// ── A single attack assignment inside a player's plan ───────────────
+export interface AttackAssignment {
+  targetIdx: number;
+  missiles: number;
 }
 
-export interface StatusEffect {
-  name: string;
-  icon: string;
-  turnsLeft: number;
-  shieldHp?: number;
+// ── A player's full plan for one round ──────────────────────────────
+export interface PlayerPlan {
+  actorIdx: number;
+  attacks: AttackAssignment[];   // list of attacks (can target multiple enemies)
+  shieldMissiles: number;        // missiles spent on shield (2 missiles = 1 shield point)
+  totalSpent: number;            // must be ≤ 50
+  confirmed: boolean;
 }
 
+// ── One resolved attack event (used in battle log) ──────────────────
+export interface RoundResult {
+  actorIdx: number;
+  targetIdx: number;
+  incomingDamage: number;        // raw damage before shield
+  shieldAbsorbed: number;        // how much shield ate
+  hpDamage: number;              // actual HP lost
+  shieldBroken: boolean;         // true if this hit shattered the shield
+}
+
+// ── Faction template (cosmetic only – no mechanics) ──────────────────
 export interface FactionTemplate {
   id: string;
   name: string;
@@ -31,53 +35,38 @@ export interface FactionTemplate {
   gradientFrom: string;
   gradientTo: string;
   svgIcon: string;
-  // Base stats (tweak per faction from 500 HP / 50 missiles)
-  baseHp: number;
-  baseArmor: number;        // damage reduction flat
-  baseMissiles: number;
-  abilities: Ability[];
-  passive: {
-    name: string;
-    description: string;
-    icon: string;
-  };
 }
 
+// ── Fighter (in-battle state) ────────────────────────────────────────
 export interface Fighter {
   factionId: string;
   playerName: string;
   name: string;
   hp: number;
   maxHp: number;
-  missiles: number;
-  maxMissiles: number;
-  armor: number;
+  missiles: number;              // always reset to 50 at round start
+  shieldHp: number;              // absorbed damage before HP
   alive: boolean;
   surrendered?: boolean;
-  shieldHp: number;
-  statusEffects: StatusEffect[];
   color: string;
   gradientFrom: string;
   gradientTo: string;
   svgIcon: string;
   lore: string;
-  abilities: Ability[];
-  passive: {
-    name: string;
-    description: string;
-    icon: string;
-  };
+  planConfirmed: boolean;        // has this player confirmed their plan?
 }
 
+// ── Battle log entry ─────────────────────────────────────────────────
 export interface BattleLogEntry {
-  turn: number;
+  round: number;
   actorName: string;
   targetName: string;
-  abilityName: string;
-  abilityIcon: string;
+  icon: string;
   message: string;
-  type: AbilityType | 'death' | 'status';
+  type: ActionType;
   value?: number;
 }
 
-export type GamePhase = 'login' | 'lobby' | 'selection' | 'battle' | 'gameover';
+// planning  → players assign missiles (30s timer)
+// resolving → server/host resolves all actions simultaneously
+export type GamePhase = 'login' | 'lobby' | 'planning' | 'resolving' | 'gameover';

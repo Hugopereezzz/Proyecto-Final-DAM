@@ -64,4 +64,8 @@ export class AuthService {
   obtenerRanking(): Observable<Usuario[]> {
     return this.http.get<Usuario[]>(`${this.apiUrl}/ranking`);
   }
+
+  incrementarVictorias(username: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/incrementar-victorias/${username}`, {});
+  }
 }

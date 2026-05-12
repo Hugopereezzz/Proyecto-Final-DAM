@@ -1,6 +1,11 @@
 <div class="deployments-header">
-  <h2 class="cyber-title">SALAS DISPONIBLES</h2>
-  <span class="subtitle">ZONAS DE COMBATES DISPONIBLES (SALAS PÚBLICAS)</span>
+  <div class="header-info">
+    <h2 class="cyber-title">SALAS DISPONIBLES</h2>
+    <span class="subtitle">ZONAS DE COMBATES DISPONIBLES (SALAS PÚBLICAS)</span>
+  </div>
+  <button class="refresh-btn" (click)="refrescar()" title="Refrescar salas">
+    <span class="refresh-icon">🔄</span>
+  </button>
 </div>
 
 <div class="lobbies-grid">
