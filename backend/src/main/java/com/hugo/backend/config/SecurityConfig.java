@@ -42,6 +42,10 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/usuarios/registro", "/api/usuarios/login").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/usuarios/ranking").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                        // Endpoints de juego: accesibles sin token (el frontend usa sesión en memoria, no JWT)
+                        .requestMatchers("/api/partidas/**").permitAll()
+                        .requestMatchers("/api/estadisticas/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/facciones/**").permitAll()
                         .anyRequest().authenticated()
                 )
 

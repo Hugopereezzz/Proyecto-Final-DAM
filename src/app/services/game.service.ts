@@ -1,7 +1,8 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Fighter, Ability, BattleLogEntry, GamePhase, StatusEffect } from '../models/game.models';
 import { FACTIONS } from '../data/factions.data';
+import { AuthService } from './auth.service';
+import { MatchService } from './match.service';
 
 @Injectable({ providedIn: 'root' })
 export class GameService {
@@ -11,8 +12,8 @@ export class GameService {
   loggedInUser = signal<string | null>(null);
   isMultiplayer = signal<boolean>(false);
 
-  private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:8080/api/partidas';
+  private authService = inject(AuthService);
+  private matchService = inject(MatchService);
 
   // ── Selection ────────────────────────────────────────────────
   selectedFactionIds = signal<string[]>([]);
@@ -277,7 +278,7 @@ export class GameService {
       this.winner.set(alive[0]?.name || null);
       this.phase.set('gameover');
       this.fighters.set(fighters);
-      this.guardarResultadosBatalla(fighters);
+      this.saveMatchResults();
       return;
     }
 
@@ -374,40 +375,44 @@ export class GameService {
     this.phase.set('login');
   }
 
-  private guardarResultadosBatalla(fightersState: Fighter[]) {
-    // Solo enviamos los datos si el usuario logueado es el Host o si es SinglePlayer
-    // Para simplificar, lo envía el que detecta el gameover (en singleplayer somos nosotros).
-    // En multiplayer, para evitar envíos duplicados, lo enviará solo el ganador o el jugador 0 si hay empate.
-    const alive = fightersState.filter(f => f.alive);
-    const winner = alive.length === 1 ? alive[0] : null;
+  // ── Persistence ──────────────────────────────────────────────
+  private saveMatchResults() {
+    const user = this.authService.currentUser();
+    if (!user || !user.id) return;
 
-    if (this.isMultiplayer()) {
-        const myName = this.loggedInUser();
-        if (winner && winner.playerName !== myName) {
-            return; // Solo el ganador envía los datos para no duplicar peticiones
-        }
+    // Mapa de IDs de facción (coincide con los seeds de MySQL)
+    const factionIdMap: Record<string, number> = {
+      'iron_vanguard': 1, 'shadow_cult': 2, 'ember_circle': 3, 'thorn_wardens': 4,
+      'void_heralds': 5, 'storm_legion': 6, 'bone_covenant': 7, 'radiant_order': 8
+    };
+
+    // Solo incluir participantes con usuario real en BD.
+    // En partidas locales (vs IA), el oponente no tiene usuario registrado,
+    // así que se filtran y solo se guarda el jugador autenticado.
+    const participantesReales = this.fighters()
+      .filter(f => f.playerName === this.loggedInUser())
+      .map(f => ({
+        usuario: { id: user.id! },
+        faccion: { id: factionIdMap[f.factionId] || 1 },
+        vida: f.hp,
+        posicion: f.name === this.winner() ? 1 : 2
+      }));
+
+    if (participantesReales.length === 0) {
+      console.warn('No se encontraron participantes reales para guardar.');
+      return;
     }
 
-    const payload: any = { perdedores: [] };
-    
-    if (winner) {
-        payload.ganador = {
-            nombreUsuario: winner.playerName,
-            faccionId: winner.factionId
-        };
-    }
+    const partidaData = {
+      estado: 'FINALIZADO',
+      numeroRonda: this.turnNumber(),
+      participantes: participantesReales
+    };
 
-    const losers = fightersState.filter(f => !f.alive);
-    losers.forEach(l => {
-        payload.perdedores.push({
-            nombreUsuario: l.playerName,
-            faccionId: l.factionId
-        });
-    });
-
-    this.http.post(`${this.apiUrl}/registrar`, payload).subscribe({
-        next: () => console.log('✅ Partida guardada en MySQL correctamente'),
-        error: (err) => console.error('❌ Error al guardar la partida:', err)
+    console.log('Enviando resultados de la partida al backend...', partidaData);
+    this.matchService.guardarPartida(partidaData).subscribe({
+      next: (res) => console.log('✅ Partida guardada con éxito:', res),
+      error: (err) => console.error('❌ Error al guardar partida:', err)
     });
   }
 }
