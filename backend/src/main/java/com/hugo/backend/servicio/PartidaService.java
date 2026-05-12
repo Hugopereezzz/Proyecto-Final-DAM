@@ -104,4 +104,74 @@ public class PartidaService {
     public Partida obtenerPorId(Long id) {
         return partidaRepository.findById(id).orElseThrow();
     }
+
+    @Transactional
+    public void registrarPartidaFinalizada(Map<String, Object> payload) {
+        Partida partida = new Partida();
+        partida.setEstado("FINALIZADO");
+        partida.setNumeroRonda(1);
+        partida = partidaRepository.save(partida);
+
+        // Ganador
+        if (payload.containsKey("ganador") && payload.get("ganador") != null) {
+            Map<String, Object> ganadorData = (Map<String, Object>) payload.get("ganador");
+            procesarJugador(ganadorData, partida, 1);
+        }
+
+        // Perdedores
+        if (payload.containsKey("perdedores") && payload.get("perdedores") != null) {
+            List<Map<String, Object>> perdedoresData = (List<Map<String, Object>>) payload.get("perdedores");
+            for (Map<String, Object> pData : perdedoresData) {
+                procesarJugador(pData, partida, 2);
+            }
+        }
+        
+        partidaRepository.save(partida);
+    }
+
+    private void procesarJugador(Map<String, Object> data, Partida partida, int posicion) {
+        if (data == null || !data.containsKey("nombreUsuario") || !data.containsKey("faccionId")) return;
+        String nickname = data.get("nombreUsuario").toString();
+        String faccionId = data.get("faccionId").toString();
+
+        Usuario u = usuarioRepository.findByNickname(nickname).orElse(null);
+        if (u == null) return;
+
+        Faccion faccion = null;
+        for (Faccion f : u.getFacciones()) {
+            if (faccionId.equals(f.getTipo())) {
+                faccion = f;
+                break;
+            }
+        }
+
+        if (faccion == null) {
+            faccion = new Faccion();
+            faccion.setNombre(faccionId);
+            faccion.setTipo(faccionId);
+            faccion.setPropietario(u);
+            faccion.setVictorias(0);
+            faccion.setVidas(5);
+        }
+
+        if (posicion == 1) {
+            faccion.setVictorias(faccion.getVictorias() + 1);
+            u.setMonedas(u.getMonedas() + 200);
+        } else {
+            faccion.setVidas(Math.max(0, faccion.getVidas() - 1));
+            u.setMonedas(u.getMonedas() + 50);
+        }
+
+        faccion = faccionRepository.save(faccion);
+        usuarioRepository.save(u);
+
+        ParticipantePartida pp = new ParticipantePartida();
+        pp.setPartida(partida);
+        pp.setUsuario(u);
+        pp.setFaccion(faccion);
+        pp.setPosicion(posicion);
+        pp.setVida(posicion == 1 ? 100 : 0);
+        
+        partida.getParticipantes().add(pp);
+    }
 }

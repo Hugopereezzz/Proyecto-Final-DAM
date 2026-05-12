@@ -1,4 +1,5 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Fighter, Ability, BattleLogEntry, GamePhase, StatusEffect } from '../models/game.models';
 import { FACTIONS } from '../data/factions.data';
 
@@ -9,6 +10,9 @@ export class GameService {
   phase        = signal<GamePhase>('login');
   loggedInUser = signal<string | null>(null);
   isMultiplayer = signal<boolean>(false);
+
+  private http = inject(HttpClient);
+  private apiUrl = 'http://localhost:8080/api/partidas';
 
   // ── Selection ────────────────────────────────────────────────
   selectedFactionIds = signal<string[]>([]);
@@ -273,6 +277,7 @@ export class GameService {
       this.winner.set(alive[0]?.name || null);
       this.phase.set('gameover');
       this.fighters.set(fighters);
+      this.guardarResultadosBatalla(fighters);
       return;
     }
 
@@ -367,5 +372,42 @@ export class GameService {
     this.battleLog.set([]);
     this.winner.set(null);
     this.phase.set('login');
+  }
+
+  private guardarResultadosBatalla(fightersState: Fighter[]) {
+    // Solo enviamos los datos si el usuario logueado es el Host o si es SinglePlayer
+    // Para simplificar, lo envía el que detecta el gameover (en singleplayer somos nosotros).
+    // En multiplayer, para evitar envíos duplicados, lo enviará solo el ganador o el jugador 0 si hay empate.
+    const alive = fightersState.filter(f => f.alive);
+    const winner = alive.length === 1 ? alive[0] : null;
+
+    if (this.isMultiplayer()) {
+        const myName = this.loggedInUser();
+        if (winner && winner.playerName !== myName) {
+            return; // Solo el ganador envía los datos para no duplicar peticiones
+        }
+    }
+
+    const payload: any = { perdedores: [] };
+    
+    if (winner) {
+        payload.ganador = {
+            nombreUsuario: winner.playerName,
+            faccionId: winner.factionId
+        };
+    }
+
+    const losers = fightersState.filter(f => !f.alive);
+    losers.forEach(l => {
+        payload.perdedores.push({
+            nombreUsuario: l.playerName,
+            faccionId: l.factionId
+        });
+    });
+
+    this.http.post(`${this.apiUrl}/registrar`, payload).subscribe({
+        next: () => console.log('✅ Partida guardada en MySQL correctamente'),
+        error: (err) => console.error('❌ Error al guardar la partida:', err)
+    });
   }
 }
