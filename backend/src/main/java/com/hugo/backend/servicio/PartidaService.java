@@ -8,6 +8,7 @@ import com.hugo.backend.repositorio.PartidaRepository;
 import com.hugo.backend.repositorio.FaccionRepository;
 import com.hugo.backend.repositorio.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,9 @@ public class PartidaService {
     private UsuarioRepository usuarioRepository;
     @Autowired
     private FaccionRepository faccionRepository;
+    @Autowired
+    @Lazy
+    private EstadisticasService estadisticasService;
 
     @Transactional
     public Partida guardarPartida(Partida datos) {
@@ -68,6 +72,15 @@ public class PartidaService {
 
         Partida guardada = partidaRepository.save(datos);
         System.out.println(">>> [PartidaService] Partida guardada con ID: " + guardada.getId());
+
+        // Replicar en MongoDB para estadísticas
+        try {
+            estadisticasService.guardarEnMongo(guardada);
+            System.out.println(">>> [PartidaService] Partida replicada en MongoDB");
+        } catch (Exception e) {
+            System.err.println(">>> [PartidaService] AVISO: No se pudo replicar en MongoDB: " + e.getMessage());
+        }
+
         return guardada;
     }
 

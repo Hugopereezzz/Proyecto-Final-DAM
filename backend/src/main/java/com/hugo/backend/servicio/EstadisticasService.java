@@ -20,28 +20,38 @@ public class EstadisticasService {
     @Autowired
     private PartidaMongoRepository mongoRepository;
 
+    /** Persiste directamente una partida (ya guardada en MySQL) en MongoDB. */
+    public void guardarEnMongo(Partida p) {
+        PartidaDoc doc = new PartidaDoc();
+        doc.setOriginalId(p.getId());
+        doc.setEstado(p.getEstado());
+        doc.setNumeroRonda(p.getNumeroRonda());
+        List<ParticipanteDoc> docs = new ArrayList<>();
+        for (ParticipantePartida part : p.getParticipantes()) {
+            ParticipanteDoc pDoc = new ParticipanteDoc();
+            // Null-safety: usuario o facción pueden ser null si no se encontraron en BD
+            if (part.getUsuario() != null) {
+                pDoc.setUsuarioId(part.getUsuario().getId());
+                pDoc.setNickname(part.getUsuario().getNickname());
+            }
+            if (part.getFaccion() != null) {
+                pDoc.setFaccionId(part.getFaccion().getId());
+                pDoc.setFaccionNombre(part.getFaccion().getNombre());
+                pDoc.setFaccionTipo(part.getFaccion().getTipo());
+            }
+            pDoc.setVida(part.getVida());
+            pDoc.setPosicion(part.getPosicion());
+            docs.add(pDoc);
+        }
+        doc.setParticipantes(docs);
+        mongoRepository.save(doc);
+    }
+
     @Transactional
     public void copiarPartidasAMongo() {
         List<Partida> partidas = partidaRepository.findAll();
         for (Partida p : partidas) {
-            PartidaDoc doc = new PartidaDoc();
-            doc.setOriginalId(p.getId());
-            doc.setEstado(p.getEstado());
-            doc.setNumeroRonda(p.getNumeroRonda());
-            List<ParticipanteDoc> docs = new ArrayList<>();
-            for (ParticipantePartida part : p.getParticipantes()) {
-                ParticipanteDoc pDoc = new ParticipanteDoc();
-                pDoc.setUsuarioId(part.getUsuario().getId());
-                pDoc.setNickname(part.getUsuario().getNickname());
-                pDoc.setFaccionId(part.getFaccion().getId());
-                pDoc.setFaccionNombre(part.getFaccion().getNombre());
-                pDoc.setFaccionTipo(part.getFaccion().getTipo());
-                pDoc.setVida(part.getVida());
-                pDoc.setPosicion(part.getPosicion());
-                docs.add(pDoc);
-            }
-            doc.setParticipantes(docs);
-            mongoRepository.save(doc);
+            guardarEnMongo(p);
         }
     }
 
