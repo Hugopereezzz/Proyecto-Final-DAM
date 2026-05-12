@@ -4,6 +4,7 @@ import {
 } from '../models/game.models';
 import { FACTIONS } from '../data/factions.data';
 import { AuthService } from './auth.service';
+import { SocketService } from './socket.service';
 
 const MISSILES_PER_ROUND = 50;
 const PLANNING_SECONDS  = 30;
@@ -12,6 +13,7 @@ const BASE_HP           = 500;
 @Injectable({ providedIn: 'root' })
 export class GameService {
   private auth = inject(AuthService);
+  private socketService = inject(SocketService);
 
   // ── Phase & Auth ──────────────────────────────────────────────────
   phase        = signal<GamePhase>('login');
@@ -269,10 +271,19 @@ export class GameService {
         value: hpDmg,
       });
 
-      // Death check
-      if (fighters[ev.targetIdx].hp <= 0) {
-        fighters[ev.targetIdx] = { ...fighters[ev.targetIdx], alive: false };
-        this.addLog({
+        // Death check
+        if (fighters[ev.targetIdx].hp <= 0) {
+          fighters[ev.targetIdx] = { ...fighters[ev.targetIdx], alive: false };
+          
+          // Notificar al servidor que este jugador ha muerto para no esperarlo más
+          if (this.isMultiplayer()) {
+            const deadPlayerName = fighters[ev.targetIdx].playerName;
+            if (deadPlayerName === this.loggedInUser()) {
+              this.socketService.realizarAccion({ abilityId: 'system_death', targetIdx: ev.targetIdx });
+            }
+          }
+
+          this.addLog({
           round: this.roundNumber(), actorName: target.name, targetName: '',
           icon: '💥', type: 'death',
           message: `💥 ¡${target.name} ha sido destruido!`,
@@ -369,8 +380,21 @@ export class GameService {
         });
       }
     } else {
-      // Keep resolving normally; surrendered player has no plan → treated as no action
-      this._resolveRound();
+      // No resolvemos automáticamente si quedan más de 1 jugador vivo.
+      // Simplemente dejamos que el resto siga planeando.
+      // Si todos los que quedan vivos ya habían confirmado, entonces sí resolvemos.
+      const plans = this.playerPlans();
+      const allConfirmed = alive.every(a => {
+         const idx = this.fighters().indexOf(a);
+         return plans[idx] !== null;
+      });
+
+      if (allConfirmed) {
+        clearInterval(this._planningTimer);
+        if (!this.isMultiplayer()) {
+          this._resolveRound();
+        }
+      }
     }
   }
 

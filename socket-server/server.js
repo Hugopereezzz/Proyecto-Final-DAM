@@ -356,14 +356,16 @@ io.on('connection', (socket) => {
     const usuario = usuarios.get(socket.id);
     const salaId = usuario?.salaActual || Array.from(socket.rooms).find(r => r !== socket.id);
     
-    if (!salaId) {
-      console.warn(`[ACCION] Error: ${socket.id} intentó actuar sin estar en una sala`);
-      return;
+    if (!salaId) return;
+
+    const sala = salas.get(salaId);
+    if (sala && (accion.abilityId === 'system_surrender' || accion.abilityId === 'system_death')) {
+      if (!sala.eliminados) sala.eliminados = new Set();
+      sala.eliminados.add(socket.id);
+      console.log(`[JUEGO] Sala ${salaId}: ${usuario?.nombre || 'Alguien'} se ha eliminado del conteo de planes.`);
     }
 
     console.log(`[ACCION] Sala ${salaId}: ${usuario?.nombre || 'Desconocido'} -> ${accion.abilityId}`);
-    
-    // Emitir a todos en la sala (incluyendo al emisor)
     io.to(salaId).emit('accion-recibida', accion);
   });
 
@@ -376,7 +378,10 @@ io.on('connection', (socket) => {
     
     // Resetear planes al empezar
     const sala = salas.get(usuario.salaActual);
-    if (sala) sala.planesRonda = {};
+    if (sala) {
+        sala.planesRonda = {};
+        sala.eliminados = new Set(); // Limpiar eliminados de la partida anterior
+    }
     
     io.to(usuario.salaActual).emit('batalla-comenzada', datosBatalla);
   });
@@ -396,19 +401,16 @@ io.on('connection', (socket) => {
     
     console.log(`[PLAN] Sala ${usuario.salaActual}: ${usuario.nombre} envió su plan.`);
 
-    // Notificar a los demás que este jugador está listo (sin enviar el plan todavía)
-    // El frontend usará esto para marcar el "check" verde
     socket.to(usuario.salaActual).emit('plan-recibido', { actorIdx, plan: null });
 
-    // Si todos han enviado su plan, enviamos todos los planes a la vez para resolver
-    const jugadoresVivos = sala.jugadores.length; // Podríamos filtrar por HP si el server supiera el estado, pero delegamos al front
-    if (Object.keys(sala.planesRonda).length >= jugadoresVivos) {
-      console.log(`[RESOLUCION] Sala ${usuario.salaActual}: Todos los planes recibidos. Enviando resolución.`);
+    // Conteo de jugadores que DEBEN enviar plan (los que no están eliminados/rendidos)
+    if (!sala.eliminados) sala.eliminados = new Set();
+    const jugadoresEsperados = sala.jugadores.filter(j => !sala.eliminados.has(j.socketId)).length;
+
+    if (Object.keys(sala.planesRonda).length >= jugadoresEsperados) {
+      console.log(`[RESOLUCION] Sala ${usuario.salaActual}: Todos los planes necesarios recibidos. Enviando resolución.`);
       
-      // Enviamos el mapa completo de planes a todos
       const todosLosPlanes = Object.values(sala.planesRonda);
-      
-      // Añadimos un "seed" o un orden aleatorio generado por el servidor para evitar desincronías
       const seed = Math.random();
       
       io.to(usuario.salaActual).emit('ronda-resuelta', { 
@@ -416,7 +418,6 @@ io.on('connection', (socket) => {
         seed: seed 
       });
 
-      // Limpiar planes para la siguiente ronda
       sala.planesRonda = {};
     }
   });
