@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Service
 public class UsuarioService {
@@ -29,8 +30,11 @@ public class UsuarioService {
 
     /**
      * Intenta hacer login con las credenciales dadas.
-     * - Si el usuario ya tiene una sesión activa (sessionToken != null), rechaza con empty.
-     * - Si las credenciales son correctas, genera un sessionToken único y lo guarda.
+     * <ul>
+     *   <li>Si el usuario tiene un token pero ya caducó: limpia la sesión vieja y permite el acceso.</li>
+     *   <li>Si el usuario tiene un token aún vigente: rechaza con Optional.empty() (-> 409).</li>
+     *   <li>Si las credenciales son incorrectas: rechaza con Optional.empty() (-> 401).</li>
+     * </ul>
      */
     @Transactional
     public Optional<Usuario> login(String nickname, String password) {
@@ -42,29 +46,42 @@ public class UsuarioService {
         // Verificar contraseña
         if (!passwordEncoder.matches(password, u.getPassword())) return Optional.empty();
 
-        // Bloquear si ya hay una sesión activa
-        if (u.getSessionToken() != null) return Optional.empty();
+        // Si hay sesión activa, comprobar si ha caducado
+        if (u.getSessionToken() != null) {
+            if (u.getSessionExpiresAt() != null && u.getSessionExpiresAt().isBefore(LocalDateTime.now())) {
+                // Sesión caducada: limpiar y permitir nuevo acceso
+                u.setSessionToken(null);
+                u.setSessionExpiresAt(null);
+            } else {
+                // Sesión todavía vigente: bloquear
+                return Optional.empty();
+            }
+        }
 
-        // Crear y persistir el token de sesión
+        // Crear token nuevo con expiración de 3 minutos
         u.setSessionToken(UUID.randomUUID().toString());
+        u.setSessionExpiresAt(LocalDateTime.now().plusMinutes(3));
         usuarioRepository.save(u);
 
         return Optional.of(u);
     }
 
     /**
-     * Devuelve true si las credenciales son correctas PERO el usuario ya tiene sesión activa.
+     * Devuelve true si las credenciales son correctas Y el usuario tiene una sesión AÚN VIGENTE.
+     * Una sesión caducada (sessionExpiresAt en el pasado) NO se considera activa.
      * Se usa para diferenciar 401 (credenciales malas) de 409 (ya conectado).
      */
     public boolean tieneSesionActiva(String nickname, String password) {
         return usuarioRepository.findByNickname(nickname)
                 .filter(u -> passwordEncoder.matches(password, u.getPassword()))
-                .map(u -> u.getSessionToken() != null)
+                .map(u -> u.getSessionToken() != null
+                        && u.getSessionExpiresAt() != null
+                        && u.getSessionExpiresAt().isAfter(LocalDateTime.now()))
                 .orElse(false);
     }
 
     /**
-     * Cierra la sesión del usuario borrando su sessionToken.
+     * Cierra la sesión del usuario borrando su sessionToken y la fecha de expiración.
      */
     @Transactional
     public boolean logout(String sessionToken) {
@@ -72,6 +89,31 @@ public class UsuarioService {
         if (opt.isEmpty()) return false;
         Usuario u = opt.get();
         u.setSessionToken(null);
+        u.setSessionExpiresAt(null);
+        usuarioRepository.save(u);
+        return true;
+    }
+
+    /**
+     * Renueva la expiración del token activo por 3 minutos más.
+     * Si el token no existe o ya ha caducado, devuelve false para forzar re-login.
+     */
+    @Transactional
+    public boolean refreshSession(String sessionToken) {
+        Optional<Usuario> opt = usuarioRepository.findBySessionToken(sessionToken);
+        if (opt.isEmpty()) return false;
+
+        Usuario u = opt.get();
+        // Si ya caducó, invalidamos y devolvemos false
+        if (u.getSessionExpiresAt() == null || u.getSessionExpiresAt().isBefore(LocalDateTime.now())) {
+            u.setSessionToken(null);
+            u.setSessionExpiresAt(null);
+            usuarioRepository.save(u);
+            return false;
+        }
+
+        // Extender 3 minutos más desde ahora
+        u.setSessionExpiresAt(LocalDateTime.now().plusMinutes(3));
         usuarioRepository.save(u);
         return true;
     }
