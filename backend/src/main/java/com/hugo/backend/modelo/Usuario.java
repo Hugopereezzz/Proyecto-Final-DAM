@@ -3,6 +3,7 @@ package com.hugo.backend.modelo;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +40,10 @@ public class Usuario {
     @Column(unique = true)
     private String sessionToken;
 
+    /** Fecha/hora en que caduca la sesión activa. Null si no hay sesión. */
+    @Column
+    private LocalDateTime sessionExpiresAt;
+
     @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Faccion> facciones = new ArrayList<>();
 
@@ -60,6 +65,8 @@ public class Usuario {
     public void setVictorias(Integer victorias) { this.victorias = victorias; }
     public String getSessionToken() { return sessionToken; }
     public void setSessionToken(String sessionToken) { this.sessionToken = sessionToken; }
+    public LocalDateTime getSessionExpiresAt() { return sessionExpiresAt; }
+    public void setSessionExpiresAt(LocalDateTime sessionExpiresAt) { this.sessionExpiresAt = sessionExpiresAt; }
     public List<Faccion> getFacciones() { return facciones; }
     public void setFacciones(List<Faccion> facciones) { this.facciones = facciones; }
 }

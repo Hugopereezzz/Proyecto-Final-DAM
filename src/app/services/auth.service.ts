@@ -1,8 +1,10 @@
 // src/app/services/auth.service.ts
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, DestroyRef } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, throwError, catchError } from 'rxjs';
+import { Observable, interval, tap, throwError, catchError, switchMap, EMPTY } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 
 /**
  * Interfaz que define la estructura de un objeto Usuario en el frontend.
@@ -18,49 +20,82 @@ export interface Usuario {
 }
 
 /**
- * Servicio encargado de la comunicación con la API de usuarios del backend.
+ * Servicio encargado de la comunicación con la API de usuarios del backend
+ * y del control del ciclo de vida de la sesión activa.
+ *
+ * Mecanismo de refresco:
+ *  - Cada 2 minutos se llama a POST /refresh-session para extender el token 3 min más.
+ *  - Si el backend devuelve 401 (token caducado), se fuerza logout local.
+ *  - Al hacer logout explícito se cancela el intervalo y se borra el token en BD.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly http    = inject(HttpClient);
-  private readonly router  = inject(Router);
-  private readonly apiUrl  = 'http://localhost:8080/api/usuarios';
+  private readonly http        = inject(HttpClient);
+  private readonly router      = inject(Router);
+  private readonly destroyRef  = inject(DestroyRef);
+  private readonly apiUrl      = 'http://localhost:8080/api/usuarios';
 
+  /** Estado reactivo del usuario autenticado. */
   readonly currentUser = signal<Usuario | null>(null);
+
+  /** Suscripción al intervalo de refresco de sesión. */
+  private refreshSub: Subscription | null = null;
+
+  // ─── Constantes de timing ─────────────────────────────────────────
+  /** Cada cuántos ms se envía el ping de refresco al backend (2 minutos). */
+  private static readonly REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+
+  // ─── Login ────────────────────────────────────────────────────────
 
   /**
    * Envía las credenciales al servidor para validar el acceso.
-   * Almacena el sessionToken recibido para usarlo en el logout.
-   * Lanza un error con status 409 si el usuario ya está conectado.
+   * - Almacena el sessionToken recibido.
+   * - Lanza un error con status 409 si el usuario ya está conectado.
+   * - Inicia el heartbeat de refresco de sesión.
    */
   login(nombreUsuario: string, contrasena: string): Observable<Usuario> {
     return this.http.post<Usuario>(`${this.apiUrl}/login`, { nombreUsuario, contrasena }).pipe(
-      tap(usuario => this.currentUser.set(usuario)),
+      tap(usuario => {
+        this.currentUser.set(usuario);
+        this._iniciarRefrescoSesion();
+      }),
       catchError((err: HttpErrorResponse) => throwError(() => err))
     );
   }
+
+  // ─── Registro ─────────────────────────────────────────────────────
 
   /** Envía los datos de un nuevo usuario al servidor para su creación. */
   registrar(usuario: Omit<Usuario, 'id' | 'victorias'>): Observable<Usuario> {
     return this.http.post<Usuario>(`${this.apiUrl}/registro`, usuario);
   }
 
+  // ─── Logout ───────────────────────────────────────────────────────
+
   /**
-   * Cierra la sesión en el backend (borra el sessionToken) y limpia el estado local.
+   * Cierra la sesión:
+   *  1. Detiene el intervalo de refresco.
+   *  2. Llama al backend para borrar el token en BD de forma inmediata.
+   *  3. Limpia el estado local.
    */
   logout(): Observable<any> {
+    this._detenerRefrescoSesion();
     const token = this.currentUser()?.sessionToken;
     this.currentUser.set(null);
+
     if (!token) {
-      return new Observable(obs => obs.complete());
+      return new Observable(obs => { obs.next(null); obs.complete(); });
     }
     return this.http.post(`${this.apiUrl}/logout`, { sessionToken: token });
   }
 
   /** Limpia el estado de autenticación local sin llamar al backend. */
   clearSession(): void {
+    this._detenerRefrescoSesion();
     this.currentUser.set(null);
   }
+
+  // ─── Ranking / victorias ──────────────────────────────────────────
 
   /** Obtiene el ranking global de los 10 mejores jugadores. */
   obtenerRanking(): Observable<Usuario[]> {
@@ -69,5 +104,49 @@ export class AuthService {
 
   incrementarVictorias(username: string): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/incrementar-victorias/${username}`, {});
+  }
+
+  // ─── Heartbeat de sesión (privado) ────────────────────────────────
+
+  /**
+   * Inicia un intervalo que llama a POST /refresh-session cada 2 minutos.
+   * Si el backend responde con 401, fuerza logout y redirige al login.
+   */
+  private _iniciarRefrescoSesion(): void {
+    this._detenerRefrescoSesion(); // Cancelar cualquier intervalo previo
+
+    this.refreshSub = interval(AuthService.REFRESH_INTERVAL_MS)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        switchMap(() => {
+          const token = this.currentUser()?.sessionToken;
+          if (!token) return EMPTY;
+          return this.http
+            .post(`${this.apiUrl}/refresh-session`, { sessionToken: token })
+            .pipe(
+              catchError((err: HttpErrorResponse) => {
+                if (err.status === 401) {
+                  // Sesión caducada en el servidor: forzar logout local
+                  console.warn('[AuthService] Sesión caducada detectada en refresco. Cerrando sesión.');
+                  this._detenerRefrescoSesion();
+                  this.currentUser.set(null);
+                  this.router.navigate(['/login']);
+                }
+                return EMPTY;
+              })
+            );
+        })
+      )
+      .subscribe({
+        next: () => console.debug('[AuthService] Sesión renovada correctamente.'),
+      });
+  }
+
+  /** Cancela el intervalo de refresco si está activo. */
+  private _detenerRefrescoSesion(): void {
+    if (this.refreshSub && !this.refreshSub.closed) {
+      this.refreshSub.unsubscribe();
+      this.refreshSub = null;
+    }
   }
 }

@@ -70,6 +70,24 @@ public class UsuarioController {
                 : ResponseEntity.status(404).body("Sesión no encontrada");
     }
 
+    /**
+     * Renueva la expiración del token activo otros 3 minutos.
+     * El frontend llama a este endpoint cada 2 minutos mientras el usuario esté activo.
+     * - 200: token renovado correctamente.
+     * - 401: token caducado o inexistente → el frontend debe hacer logout.
+     */
+    @PostMapping("/refresh-session")
+    public ResponseEntity<?> refreshSession(@RequestBody Map<String, String> body) {
+        String token = body.get("sessionToken");
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.badRequest().body("sessionToken requerido");
+        }
+        boolean ok = usuarioService.refreshSession(token);
+        return ok
+                ? ResponseEntity.ok("Sesión renovada")
+                : ResponseEntity.status(401).body("Sesión caducada");
+    }
+
     @GetMapping("/ranking")
     public List<Usuario> ranking() {
         return usuarioService.obtenerRanking();
