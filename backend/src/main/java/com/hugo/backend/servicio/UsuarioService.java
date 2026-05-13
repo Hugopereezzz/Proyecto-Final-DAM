@@ -49,8 +49,9 @@ public class UsuarioService {
         return usuarioRepository.findById(id).map(u -> {
             if (datos.getNombre() != null) u.setNombre(datos.getNombre());
             if (datos.getApellidos() != null) u.setApellidos(datos.getApellidos());
-            if (datos.getNickname() != null) u.setNickname(datos.getNickname());
             if (datos.getEmail() != null) u.setEmail(datos.getEmail());
+            if (datos.getMonedas() != null) u.setMonedas(datos.getMonedas());
+            if (datos.getNickname() != null) u.setNickname(datos.getNickname());
             return usuarioRepository.save(u);
         }).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
     }

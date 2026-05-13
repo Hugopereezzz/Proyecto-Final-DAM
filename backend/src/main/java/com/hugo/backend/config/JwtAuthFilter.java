@@ -28,7 +28,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getServletPath();
-        boolean skip = path != null && path.startsWith("/api/auth");
+        boolean skip = path != null && (
+            path.startsWith("/api/auth") || 
+            path.startsWith("/api/usuarios/registro") || 
+            path.startsWith("/api/usuarios/login")
+        );
         if (skip) {
             log.debug("Skipping JwtAuthFilter for path: {}", path);
         }
@@ -47,7 +51,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (authService.validateToken(token)) {
                 Long userId = authService.getUserIdFromToken(token);
                 log.info("Token valid for userId: {}", userId);
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userId, null, java.util.List.of());
+                var authorities = java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"));
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userId, null, authorities);
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } else {

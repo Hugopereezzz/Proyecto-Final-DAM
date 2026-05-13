@@ -93,8 +93,14 @@ public class EstadisticasService {
         }
         List<Map<String, Object>> ranking = new ArrayList<>();
         victorias.entrySet().stream()
+                .filter(e -> e.getKey() != null)
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .forEach(e -> ranking.add(Map.of("nickname", (Object) e.getKey(), "victorias", e.getValue())));
+                .forEach(e -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("nickname", e.getKey());
+                    item.put("victorias", e.getValue());
+                    ranking.add(item);
+                });
         return ranking;
     }
 
@@ -110,8 +116,14 @@ public class EstadisticasService {
         }
         List<Map<String, Object>> ranking = new ArrayList<>();
         victorias.entrySet().stream()
+                .filter(e -> e.getKey() != null)
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .forEach(e -> ranking.add(Map.of("tipo", (Object) e.getKey(), "victorias", e.getValue())));
+                .forEach(e -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("tipo", e.getKey());
+                    item.put("victorias", e.getValue());
+                    ranking.add(item);
+                });
         return ranking;
     }
 }
