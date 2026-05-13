@@ -34,17 +34,3 @@ Terminal 3:
   - node socket-server/server.js → Puerto 3000 (Socket.io)
   - mvnw spring-boot:run   → Puerto 8080 (Spring Boot)
 =========================================================
-
-
-
-mucho que pulir en salas
-
-que desaparezcan cuando entren en partida
-boton para volver al menu principal desde la sala
-que despues de la partida vuelvan al lobby de su sala
-quitar pasivas o hacerlas mas simples
-quitar un par de facciones
-añadir la posibilidad de defenderse
-modificar la jugabilidad
-
-de momento nada mas
