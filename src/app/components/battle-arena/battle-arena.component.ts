@@ -111,9 +111,13 @@ interface DraftPlan {
                           <span class="atk-name">{{ f.name }}</span>
                         </div>
                         <div class="counter">
-                          <button class="cnt-btn" (click)="decAtk(i)" [disabled]="getAtk(i) <= 0 || confirmed()">−</button>
+                          <input type="range" class="atk-slider" 
+                            [min]="0" 
+                            [max]="missilesLeft() + getAtk(i)" 
+                            [value]="getAtk(i)"
+                            [disabled]="confirmed()"
+                            (input)="onAtkChange(i, $event)">
                           <span class="cnt-val">{{ getAtk(i) }}</span>
-                          <button class="cnt-btn" (click)="incAtk(i)" [disabled]="missilesLeft() <= 0 || confirmed()">+</button>
                         </div>
                         <span class="atk-dmg">💥 {{ getAtk(i) }} dmg</span>
                       </div>
@@ -125,12 +129,19 @@ interface DraftPlan {
                 <div class="section">
                   <div class="sec-title">🛡️ DEFENDER <span class="sec-hint">(2 misiles = 1 escudo)</span></div>
                   <div class="shield-row">
-                    <button class="cnt-btn" (click)="decShield()" [disabled]="draftShield() < 2 || confirmed()">−</button>
+                    <div class="shield-slider-wrap">
+                      <input type="range" class="shield-slider"
+                        [min]="0"
+                        [max]="missilesLeft() + draftShield()"
+                        [step]="2"
+                        [value]="draftShield()"
+                        [disabled]="confirmed()"
+                        (input)="onShieldChange($event)">
+                    </div>
                     <div class="shield-info">
                       <span class="cnt-val">{{ draftShield() }} misiles</span>
                       <span class="shield-pts">→ {{ shieldPts() }} puntos de escudo</span>
                     </div>
-                    <button class="cnt-btn" (click)="incShield()" [disabled]="missilesLeft() < 2 || confirmed()">+</button>
                   </div>
                 </div>
 
@@ -181,7 +192,23 @@ interface DraftPlan {
     </div>
   `,
   styles: [`
+    :host {
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+      max-width: 1400px;
+      margin: 0 auto;
+      height: 100vh;
+      box-sizing: border-box;
+      animation: phase-in 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    @keyframes phase-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     .arena-wrap { display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: hidden; }
+
 
     /* Top bar */
     .top-bar { display: flex; align-items: center; gap: 14px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 10px 18px; flex-shrink: 0; }
@@ -254,16 +281,33 @@ interface DraftPlan {
     .atk-name { font-size: 0.68rem; font-weight: 700; color: rgba(255,255,255,0.8); }
     .atk-dmg { font-size: 0.58rem; color: #ef4444; font-weight: 700; min-width: 48px; text-align: right; }
 
-    /* Counter */
-    .counter { display: flex; align-items: center; gap: 6px; }
-    .cnt-btn { width: 24px; height: 24px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.15s; line-height: 1; }
-    .cnt-btn:hover:not(:disabled) { background: var(--pc); border-color: var(--pc); }
-    .cnt-btn:disabled { opacity: 0.25; cursor: not-allowed; }
-    .cnt-val { font-size: 0.85rem; font-weight: 900; color: #fff; min-width: 24px; text-align: center; }
+    /* Counter & Sliders */
+    .counter { display: flex; align-items: center; gap: 10px; flex: 1; }
+    .cnt-val { font-size: 0.85rem; font-weight: 900; color: #fff; min-width: 28px; text-align: center; }
+
+    .atk-slider, .shield-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      outline: none;
+    }
+    .atk-slider::-webkit-slider-thumb, .shield-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--pc);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--pc);
+    }
+    .shield-slider-wrap { flex: 1; display: flex; align-items: center; }
 
     /* Shield */
     .shield-row { display: flex; align-items: center; gap: 10px; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.2); border-radius: 8px; padding: 8px 12px; }
-    .shield-info { display: flex; flex-direction: column; flex: 1; align-items: center; }
+    .shield-info { display: flex; flex-direction: column; align-items: center; min-width: 100px; }
     .shield-pts { font-size: 0.6rem; color: #93c5fd; font-weight: 700; }
 
     /* Confirm */
@@ -288,7 +332,7 @@ interface DraftPlan {
     .lr-attack { border-left: 2px solid #ef4444; }
     .lr-shield { border-left: 2px solid #60a5fa; }
     .lr-death  { border-left: 2px solid #6b7280; }
-    .lr-status,.lr-round_start,.lr-resolve { border-left: 2px solid #94a3b8; }
+    .lr-status,.lr-round_start,.rl-resolve { border-left: 2px solid #94a3b8; }
     .lr-r { color: rgba(255,255,255,0.3); font-weight: 700; }
     .lr-m { color: rgba(255,255,255,0.6); }
 
@@ -380,27 +424,14 @@ export class BattleArenaComponent {
     this.draftPlans.update(dp => ({ ...dp, [fi]: { ...cur, ...patch } }));
   }
 
-  incAtk(targetIdx: number) {
-    if (this.missilesLeft() <= 0) return;
-    const cur = this.getAtk(targetIdx);
-    this.patchDraft({ attacks: { ...this.activeDraft().attacks, [targetIdx]: cur + 1 } });
+  onAtkChange(targetIdx: number, event: Event) {
+    const val = +(event.target as HTMLInputElement).value;
+    this.patchDraft({ attacks: { ...this.activeDraft().attacks, [targetIdx]: val } });
   }
 
-  decAtk(targetIdx: number) {
-    const cur = this.getAtk(targetIdx);
-    if (cur <= 0) return;
-    this.patchDraft({ attacks: { ...this.activeDraft().attacks, [targetIdx]: cur - 1 } });
-  }
-
-  incShield() {
-    if (this.missilesLeft() < 2) return;
-    this.patchDraft({ shieldMissiles: this.activeDraft().shieldMissiles + 2 });
-  }
-
-  decShield() {
-    const cur = this.activeDraft().shieldMissiles;
-    if (cur < 2) return;
-    this.patchDraft({ shieldMissiles: cur - 2 });
+  onShieldChange(event: Event) {
+    const val = +(event.target as HTMLInputElement).value;
+    this.patchDraft({ shieldMissiles: val });
   }
 
   setTab(i: number) {

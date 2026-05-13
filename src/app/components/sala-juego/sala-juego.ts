@@ -1,6 +1,7 @@
-import { Component, inject, input, output, OnInit } from '@angular/core';
+import { Component, inject, input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SocketService, Sala, Jugador, MensajeChat } from '../../services/socket.service';
 import { GameService } from '../../services/game.service';
@@ -13,8 +14,8 @@ import { GameService } from '../../services/game.service';
     <div class="wrap">
       <div class="info cyber-panel">
         <div class="head">
-          <div class="title"><h2>{{ s?.nombre }}</h2><span class="type">{{ s?.tipo }}</span></div>
-          <div class="code"><span>🔑 {{ cs() }}</span><button (click)="copy()">{{ cp?'OK':'📋' }}</button></div>
+          <div class="title"><h2>{{ s?.nombre || 'Conectando...' }}</h2><span class="type" *ngIf="s">{{ s?.tipo }}</span></div>
+          <div class="code"><span>🔑 {{ id() }}</span><button (click)='copy()'>{{ cp?'OK':'📋' }}</button></div>
         </div>
         <div class="section"><h3>👥 OPERATIVOS</h3>
           <div class="list">
@@ -46,7 +47,7 @@ import { GameService } from '../../services/game.service';
         <div class="c-h"><h3>CHAT SALA</h3></div>
         <div class="c-m">
           @for (m of msgs; track $index) {
-            <div class="m" [class.sys]="m.tipo==='sistema'" [class.yo]="m.remitente===mn()">
+            <div class="m" [class.sys]="m.tipo==='sistema'" [class.yo]="m.remitente===mn">
               <span class="mt">{{ m.timestamp }}</span><span class="mu">{{ m.remitente }}:</span><span class="mc">{{ m.contenido }}</span>
             </div>
           }
@@ -87,22 +88,33 @@ import { GameService } from '../../services/game.service';
   `]
 })
 export class SalaJuegoComponent implements OnInit {
-  ss = inject(SocketService); gs = inject(GameService);
-  cs = input.required<string>(); si = input.required<Sala>(); mn = input.required<string>();
-  salidaSala = output<void>();
+  ss = inject(SocketService); gs = inject(GameService); router = inject(Router);
+  id = input.required<string>();
+  mn = this.gs.loggedInUser() ?? 'Jugador';
+  
   s: Sala | null = null; msgs: MensajeChat[] = []; txt = ''; cp = false;
 
   constructor() {
-    this.ss.onSalaActualizada().pipe(takeUntilDestroyed()).subscribe(s => this.s = s);
+    this.ss.onSalaActualizada().pipe(takeUntilDestroyed()).subscribe(s => {
+      if (!this.s && s) {
+        this.msgs.push({ 
+          remitente: 'SISTEMA', 
+          contenido: 'SALA: ' + s.nombre, 
+          tipo: 'sistema', 
+          timestamp: new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}) 
+        });
+      }
+      this.s = s;
+    });
     this.ss.onMensajeSala().pipe(takeUntilDestroyed()).subscribe(m => { this.msgs.push(m); this.scroll(); });
-    // This phase is no longer used
-    // this.ss.onJuegoIniciado().pipe(takeUntilDestroyed()).subscribe((data) => { ... });
     this.ss.onBatallaComenzada().pipe(takeUntilDestroyed()).subscribe(d => { this.gs.isMultiplayer.set(true); this.gs.startBattle(d.ids, d.order, d.nombres); });
   }
 
   ngOnInit() {
-    this.s = this.si();
-    this.msgs.push({ remitente: 'SISTEMA', contenido: `SALA: ${this.s.nombre}`, tipo: 'sistema', timestamp: new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}) });
+    if (!this.ss.estaConectado()) {
+      this.ss.conectar(this.mn);
+    }
+    this.ss.unirseSala(this.id());
   }
 
   get soyH() { return this.s?.host === this.ss.getMiSocketId(); }
@@ -113,7 +125,7 @@ export class SalaJuegoComponent implements OnInit {
   isTk(id: string) { return this.s?.jugadores.some(j => j.faccionId === id && j.socketId !== this.ss.getMiSocketId()) || false; }
   selF(id: string) { if (!this.isTk(id)) this.ss.seleccionarFaccion(id); }
   send() { if (this.txt.trim()) { this.ss.enviarMensajeSala(this.txt.trim()); this.txt = ''; } }
-  out() { this.ss.salirSala(); this.salidaSala.emit(); }
-  copy() { navigator.clipboard.writeText(this.cs()).then(() => { this.cp = true; setTimeout(()=>this.cp=false,2000); }); }
+  out() { this.ss.salirSala(); this.router.navigate(['/lobby']); }
+  copy() { navigator.clipboard.writeText(this.id()).then(() => { this.cp = true; setTimeout(()=>this.cp=false,2000); }); }
   scroll() { setTimeout(() => { const e = document.querySelector('.c-m'); if(e) e.scrollTop = e.scrollHeight; }, 50); }
 }

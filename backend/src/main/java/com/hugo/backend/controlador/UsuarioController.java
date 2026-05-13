@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -28,18 +29,51 @@ public class UsuarioController {
         return ResponseEntity.ok(usuarioService.guardarUsuario(usuario));
     }
 
+    /**
+     * Login con control de sesión única.
+     * - 200: login correcto, devuelve el objeto Usuario (con sessionToken).
+     * - 401: credenciales incorrectas.
+     * - 409: el usuario ya tiene una sesión activa (ya está logueado en otro lugar).
+     */
     @PostMapping("/login")
-    public ResponseEntity<Usuario> login(@RequestBody Map<String, String> credenciales) {
-        return usuarioService.login(credenciales.get("nombreUsuario"), credenciales.get("contrasena"))
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(401).build());
+    public ResponseEntity<?> login(@RequestBody Map<String, String> credenciales) {
+        String nickname = credenciales.get("nombreUsuario");
+        String password = credenciales.get("contrasena");
+
+        Optional<Usuario> resultado = usuarioService.login(nickname, password);
+        if (resultado.isPresent()) {
+            return ResponseEntity.ok(resultado.get());
+        }
+
+        // Comprobar si el fallo es por sesión activa o por credenciales incorrectas
+        boolean sesionActiva = usuarioService.tieneSesionActiva(nickname, password);
+        if (sesionActiva) {
+            return ResponseEntity.status(409).body("Usuario ya conectado desde otra ventana");
+        }
+
+        return ResponseEntity.status(401).body("Credenciales inválidas");
+    }
+
+    /**
+     * Logout: borra el sessionToken del usuario.
+     * El frontend debe enviar { "sessionToken": "..." }
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody Map<String, String> body) {
+        String token = body.get("sessionToken");
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.badRequest().body("sessionToken requerido");
+        }
+        boolean ok = usuarioService.logout(token);
+        return ok
+                ? ResponseEntity.ok("Sesión cerrada")
+                : ResponseEntity.status(404).body("Sesión no encontrada");
     }
 
     @GetMapping("/ranking")
     public List<Usuario> ranking() {
         return usuarioService.obtenerRanking();
     }
-
 
     @GetMapping
     public List<Usuario> listarUsuarios() {

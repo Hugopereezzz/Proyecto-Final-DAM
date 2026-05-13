@@ -42,7 +42,17 @@ import { GameService } from '../../services/game.service';
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      animation: phase-in 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    @keyframes phase-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     .go-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; overflow: hidden; }
+
     .particles { position: fixed; inset: 0; pointer-events: none; }
     .p { position: absolute; width: 6px; height: 6px; border-radius: 50%; animation: f linear infinite; opacity: 0.6; }
     @keyframes f { 0%{transform:translateY(100vh) rotate(0deg);opacity:0} 10%,90%{opacity:0.6} 100%{transform:translateY(-20vh) rotate(720deg);opacity:0} }

@@ -1,8 +1,9 @@
-<!-- Vista LOBBY: Panel principal con todos los subcomponentes -->
-<div class="lobby-container" *ngIf="vistaActual === 'lobby'">
+<!-- src/app/components/lobby-principal/lobby-principal.html -->
+
+<div class="lobby-container">
 
   <!-- Barra de Navegación Superior -->
-  <app-nav-bar class="area-nav" [username]="username()"></app-nav-bar>
+  <app-nav-bar class="area-nav"></app-nav-bar>
 
   <!-- Panel Izquierdo: Ranking Global -->
   <app-global-ranking class="area-ranking cyber-panel panel-red"></app-global-ranking>
@@ -23,12 +24,3 @@
   <app-global-chat class="area-chat cyber-panel"></app-global-chat>
 
 </div>
-
-<!-- Vista SALA: Componente de sala activa (reemplaza todo el lobby) -->
-<app-sala-juego
-  *ngIf="vistaActual === 'sala' && salaActual"
-  [cs]="codigoSalaActual"
-  [si]="salaActual"
-  [mn]="username()"
-  (salidaSala)="onSalidaSala()"
-></app-sala-juego>

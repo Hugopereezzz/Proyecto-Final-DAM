@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UsuarioService {
@@ -26,9 +27,53 @@ public class UsuarioService {
         return usuarioRepository.save(usuario);
     }
 
+    /**
+     * Intenta hacer login con las credenciales dadas.
+     * - Si el usuario ya tiene una sesión activa (sessionToken != null), rechaza con empty.
+     * - Si las credenciales son correctas, genera un sessionToken único y lo guarda.
+     */
+    @Transactional
     public Optional<Usuario> login(String nickname, String password) {
+        Optional<Usuario> opt = usuarioRepository.findByNickname(nickname);
+        if (opt.isEmpty()) return Optional.empty();
+
+        Usuario u = opt.get();
+
+        // Verificar contraseña
+        if (!passwordEncoder.matches(password, u.getPassword())) return Optional.empty();
+
+        // Bloquear si ya hay una sesión activa
+        if (u.getSessionToken() != null) return Optional.empty();
+
+        // Crear y persistir el token de sesión
+        u.setSessionToken(UUID.randomUUID().toString());
+        usuarioRepository.save(u);
+
+        return Optional.of(u);
+    }
+
+    /**
+     * Devuelve true si las credenciales son correctas PERO el usuario ya tiene sesión activa.
+     * Se usa para diferenciar 401 (credenciales malas) de 409 (ya conectado).
+     */
+    public boolean tieneSesionActiva(String nickname, String password) {
         return usuarioRepository.findByNickname(nickname)
-                .filter(u -> passwordEncoder.matches(password, u.getPassword()));
+                .filter(u -> passwordEncoder.matches(password, u.getPassword()))
+                .map(u -> u.getSessionToken() != null)
+                .orElse(false);
+    }
+
+    /**
+     * Cierra la sesión del usuario borrando su sessionToken.
+     */
+    @Transactional
+    public boolean logout(String sessionToken) {
+        Optional<Usuario> opt = usuarioRepository.findBySessionToken(sessionToken);
+        if (opt.isEmpty()) return false;
+        Usuario u = opt.get();
+        u.setSessionToken(null);
+        usuarioRepository.save(u);
+        return true;
     }
 
     public List<Usuario> obtenerTodos() {

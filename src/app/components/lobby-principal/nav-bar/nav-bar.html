@@ -1,3 +1,4 @@
+<!-- src/app/components/lobby-principal/nav-bar/nav-bar.html -->
 <div class="nav-container">
   <!-- LOGO -->
   <div class="nav-logo">
@@ -21,7 +22,7 @@
     <div class="user-profile">
       <span class="user-icon">👤</span>
       <div class="user-info">
-        <span class="username">{{ username() | uppercase }}</span>
+        <span class="username">{{ game.loggedInUser() | uppercase }}</span>
         <span class="status"><span class="dot"></span>conectado</span>
       </div>
     </div>
@@ -30,10 +31,11 @@
         <span class="icon">⚙️</span>
         <span>AJUSTES</span>
       </button>
-      <button class="action-btn danger" (click)="auth.logout()">
+      <button class="action-btn danger" (click)="game.logout()">
         <span class="icon">🚪</span>
         <span>CERRAR SESIÓN</span>
       </button>
     </div>
   </div>
+
 </div>

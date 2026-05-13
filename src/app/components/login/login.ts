@@ -1,12 +1,13 @@
-import { Component, inject, output, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+// src/app/components/login/login.ts
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { GameService } from '../../services/game.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="login-wrap">
       <div class="card">
@@ -46,29 +47,41 @@ import { AuthService } from '../../services/auth.service';
   `]
 })
 export class LoginComponent {
-  private auth = inject(AuthService);
-  isReg = signal(false);
-  u = signal(''); p = signal('');
-  err = signal(''); loading = signal(false);
-  loginSuccess = output<{username: string}>();
+  private readonly auth = inject(AuthService);
+  private readonly game = inject(GameService);
 
-  toggle() { this.isReg.update(v => !v); this.err.set(''); }
-  onSubmit() { this.isReg() ? this.onReg() : this.onLog(); }
+  isReg    = signal(false);
+  u        = '';
+  p        = '';
+  err      = signal('');
+  loading  = signal(false);
 
-  onLog() {
-    if (!this.u() || !this.p()) return this.err.set('Completa campos');
-    this.loading.set(true); this.err.set('');
-    this.auth.login(this.u(), this.p()).subscribe({
-      next: (u) => { this.loading.set(false); this.loginSuccess.emit({ username: u.nombreUsuario }); },
-      error: () => { this.loading.set(false); this.err.set('Error en credenciales'); }
+  toggle(): void  { this.isReg.update(v => !v); this.err.set(''); }
+  onSubmit(): void { this.isReg() ? this.onReg() : this.onLog(); }
+
+  onLog(): void {
+    if (!this.u || !this.p) return this.err.set('Completa los campos');
+    this.loading.set(true);
+    this.err.set('');
+    this.auth.login(this.u, this.p).subscribe({
+      next:  (u) => { this.loading.set(false); this.game.onLoginSuccess(u.nombreUsuario); },
+      error: (err) => {
+        this.loading.set(false);
+        if (err?.status === 409) {
+          this.err.set('⚠️ Este usuario ya está conectado en otra ventana');
+        } else {
+          this.err.set('Credenciales incorrectas');
+        }
+      }
     });
   }
 
-  onReg() {
-    if (!this.u() || !this.p()) return this.err.set('Completa campos');
-    this.loading.set(true); this.err.set('');
-    this.auth.registrar({ nombreUsuario: this.u(), contrasena: this.p() }).subscribe({
-      next: () => { this.loading.set(false); this.isReg.set(false); this.err.set('¡Registro exitoso!'); },
+  onReg(): void {
+    if (!this.u || !this.p) return this.err.set('Completa los campos');
+    this.loading.set(true);
+    this.err.set('');
+    this.auth.registrar({ nombreUsuario: this.u, contrasena: this.p }).subscribe({
+      next:  () => { this.loading.set(false); this.isReg.set(false); this.err.set('¡Registro exitoso!'); },
       error: () => { this.loading.set(false); this.err.set('Error en registro'); }
     });
   }

@@ -1,15 +1,15 @@
-import { Component, input, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { AuthService } from '../../../services/auth.service';
+// src/app/components/lobby-principal/nav-bar/nav-bar.ts
+import { Component, inject } from '@angular/core';
+import { UpperCasePipe } from '@angular/common';
+import { GameService } from '../../../services/game.service';
 
 @Component({
   selector: 'app-nav-bar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [UpperCasePipe],
   templateUrl: './nav-bar.html',
   styleUrls: ['./nav-bar.css']
 })
 export class NavBarComponent {
-  auth = inject(AuthService);
-  username = input<string>('Operador');
+  readonly game = inject(GameService);
 }

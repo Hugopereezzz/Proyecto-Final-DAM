@@ -2,7 +2,6 @@ package com.hugo.backend.modelo;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +32,13 @@ public class Usuario {
     private Integer monedas = 0;
     private Integer victorias = 0;
 
+    /**
+     * Token de sesión activa. Si es no-nulo, el usuario ya tiene una sesión abierta.
+     * Se genera al hacer login y se borra al hacer logout.
+     */
+    @Column(unique = true)
+    private String sessionToken;
+
     @OneToMany(mappedBy = "propietario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Faccion> facciones = new ArrayList<>();
 
@@ -52,6 +58,8 @@ public class Usuario {
     public void setMonedas(Integer monedas) { this.monedas = monedas; }
     public Integer getVictorias() { return victorias; }
     public void setVictorias(Integer victorias) { this.victorias = victorias; }
+    public String getSessionToken() { return sessionToken; }
+    public void setSessionToken(String sessionToken) { this.sessionToken = sessionToken; }
     public List<Faccion> getFacciones() { return facciones; }
     public void setFacciones(List<Faccion> facciones) { this.facciones = facciones; }
 }

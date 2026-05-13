@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByNickname(String nickname);
     Optional<Usuario> findByEmail(String email);
+    Optional<Usuario> findBySessionToken(String sessionToken);
     List<Usuario> findTop10ByOrderByVictoriasDesc();
 }

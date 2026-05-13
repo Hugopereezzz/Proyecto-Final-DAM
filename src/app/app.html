@@ -1,3 +1,4 @@
+<!-- src/app/app.html -->
 <div class="app-root">
 
   <!-- ══ Background ══ -->
@@ -8,35 +9,8 @@
 
   <!-- ══ Main Content ══ -->
   <main class="app-main">
-    @switch (game.phase()) {
-
-      @case ('login') {
-        <div class="login-wrapper phase-enter">
-          <app-login (loginSuccess)="game.onLoginSuccess($event.username)" />
-        </div>
-      }
-
-      @case ('lobby') {
-        <app-lobby-principal [username]="game.loggedInUser() || 'Jugador'" />
-      }
-
-      @case ('planning') {
-        <div class="battle-view phase-enter">
-          <app-battle-arena />
-        </div>
-      }
-
-      @case ('resolving') {
-        <div class="battle-view phase-enter">
-          <app-battle-arena />
-        </div>
-      }
-
-      @case ('gameover') {
-        <app-game-over class="phase-enter" />
-      }
-
-    }
+    <router-outlet />
   </main>
 
 </div>
+

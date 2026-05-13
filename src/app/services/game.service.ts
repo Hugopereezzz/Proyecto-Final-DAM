@@ -1,4 +1,6 @@
+// src/app/services/game.service.ts
 import { Injectable, signal, computed, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   Fighter, PlayerPlan, RoundResult, BattleLogEntry, GamePhase, AttackAssignment
 } from '../models/game.models';
@@ -12,8 +14,9 @@ const BASE_HP           = 500;
 
 @Injectable({ providedIn: 'root' })
 export class GameService {
-  private auth = inject(AuthService);
-  private socketService = inject(SocketService);
+  private readonly auth          = inject(AuthService);
+  private readonly socketService = inject(SocketService);
+  private readonly router        = inject(Router);
 
   // ── Phase & Auth ──────────────────────────────────────────────────
   phase        = signal<GamePhase>('login');
@@ -52,9 +55,10 @@ export class GameService {
   );
 
   // ── Auth ─────────────────────────────────────────────────────────
-  onLoginSuccess(username: string) {
+  onLoginSuccess(username: string): void {
     this.loggedInUser.set(username);
     this.phase.set('lobby');
+    this.router.navigate(['/lobby']);
   }
 
   // ── Faction toggle (used in selection screen) ────────────────────
@@ -89,7 +93,7 @@ export class GameService {
   }
 
   // ── Start battle ─────────────────────────────────────────────────
-  startBattle(ids: string[], _unusedOrder?: number[], names?: string[]) {
+  startBattle(ids: string[], _unusedOrder?: number[], names?: string[]): void {
     const fighters = ids.map((id, i) => this.buildFighter(id, names ? names[i] : undefined));
     this.fighters.set(fighters);
     this.roundNumber.set(1);
@@ -103,6 +107,7 @@ export class GameService {
       message: `🚀 ¡La batalla comienza! ${fighters.length} combatientes. Cada ronda: 50 misiles.`,
     });
 
+    this.router.navigate(['/batalla']);
     this._startPlanningPhase();
   }
 
@@ -297,20 +302,18 @@ export class GameService {
     const alive = fighters.filter(f => f.alive);
     if (alive.length <= 1) {
       const winnerFighter = alive[0];
-      const winnerName = winnerFighter?.name ?? 'Desconocido';
-      const winnerPlayer = winnerFighter?.playerName ?? null;
-      
+      const winnerName    = winnerFighter?.name ?? 'Desconocido';
+      const winnerPlayer  = winnerFighter?.playerName ?? null;
+
       this.winner.set(winnerName);
       this.phase.set('gameover');
-
-      console.log(`Batalla terminada. Ganador: ${winnerName} (${winnerPlayer})`);
+      this.router.navigate(['/gameover']);
 
       // Update backend if I am the winner
       const myUsername = this.loggedInUser();
       if (myUsername && winnerPlayer === myUsername) {
-        console.log(`¡Eres el ganador! Incrementando victorias para ${myUsername}...`);
         this.auth.incrementarVictorias(myUsername).subscribe({
-          next: () => console.log('Victorias incrementadas con éxito.'),
+          next: ()    => console.log('Victorias incrementadas con éxito.'),
           error: (err) => console.error('Error al incrementar victorias:', err)
         });
       }
@@ -362,20 +365,18 @@ export class GameService {
     const alive = fighters.filter(f => f.alive);
     if (alive.length <= 1) {
       const winnerFighter = alive[0];
-      const winnerName = winnerFighter?.name ?? 'Desconocido';
-      const winnerPlayer = winnerFighter?.playerName ?? null;
-      
+      const winnerName    = winnerFighter?.name ?? 'Desconocido';
+      const winnerPlayer  = winnerFighter?.playerName ?? null;
+
       this.winner.set(winnerName);
       this.phase.set('gameover');
-
-      console.log(`Batalla terminada por rendición. Ganador: ${winnerName} (${winnerPlayer})`);
+      this.router.navigate(['/gameover']);
 
       // Update backend if I am the winner
       const myUsername = this.loggedInUser();
       if (myUsername && winnerPlayer === myUsername) {
-        console.log(`¡Eres el ganador! Incrementando victorias para ${myUsername}...`);
         this.auth.incrementarVictorias(myUsername).subscribe({
-          next: () => console.log('Victorias incrementadas con éxito.'),
+          next: ()    => console.log('Victorias incrementadas con éxito.'),
           error: (err) => console.error('Error al incrementar victorias:', err)
         });
       }
@@ -412,7 +413,7 @@ export class GameService {
     });
   }
 
-  resetGame() {
+  resetGame(): void {
     clearInterval(this._planningTimer);
     this.selectedFactionIds.set([]);
     this.fighters.set([]);
@@ -421,14 +422,16 @@ export class GameService {
     this.myPlan.set(null);
     this.playerPlans.set([]);
     this.phase.set('lobby');
+    this.router.navigate(['/lobby']);
   }
 
-  abandonGame() {
+  abandonGame(): void {
     this.resetGame();
   }
 
-  logout() {
+  logout(): void {
     clearInterval(this._planningTimer);
+    this.auth.logout().subscribe(); // Borra el sessionToken en el backend
     this.loggedInUser.set(null);
     this.selectedFactionIds.set([]);
     this.fighters.set([]);
@@ -437,5 +440,6 @@ export class GameService {
     this.myPlan.set(null);
     this.playerPlans.set([]);
     this.phase.set('login');
+    this.router.navigate(['/login']);
   }
 }
