@@ -78,8 +78,18 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/{id}/comprar-faccion")
-    public ResponseEntity<Faccion> comprarFaccion(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(faccionService.comprarFaccion(id, body.get("nombre"), body.get("tipo")));
+    @PostMapping("/comprarFaccion/{id}")
+    public ResponseEntity<Faccion> comprarFaccion(@PathVariable Long id, @RequestBody PurchaseRequest request) {
+        return ResponseEntity.ok(faccionService.comprarFaccion(id, request.getNombre(), request.getTipo()));
+    }
+
+    // DTO temporal para la petición
+    public static class PurchaseRequest {
+        private String nombre;
+        private String tipo;
+        public String getNombre() { return nombre; }
+        public void setNombre(String nombre) { this.nombre = nombre; }
+        public String getTipo() { return tipo; }
+        public void setTipo(String tipo) { this.tipo = tipo; }
     }
 }

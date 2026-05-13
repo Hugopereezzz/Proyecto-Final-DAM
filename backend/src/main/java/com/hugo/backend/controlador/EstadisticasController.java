@@ -37,12 +37,12 @@ public class EstadisticasController {
         return estadisticasService.obtenerTipoFaccionTop();
     }
 
-    @GetMapping("/ranking-usuarios")
+    @GetMapping("/rankingUsuarios")
     public List<Map<String, Object>> rankingUsuarios() {
         return estadisticasService.rankingUsuarios();
     }
 
-    @GetMapping("/ranking-tipos-faccion")
+    @GetMapping("/rankingTiposFaccion")
     public List<Map<String, Object>> rankingTiposFaccion() {
         return estadisticasService.rankingTiposFaccion();
     }
