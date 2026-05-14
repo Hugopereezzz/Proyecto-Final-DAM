@@ -24,6 +24,11 @@ public class EstadisticasService {
     public void copiarPartidasAMongo() {
         List<Partida> partidas = partidaRepository.findAll();
         for (Partida p : partidas) {
+            // Solo copiar si no existe ya en Mongo
+            if (mongoRepository.findByOriginalId(p.getId()).isPresent()) {
+                continue;
+            }
+
             PartidaDoc doc = new PartidaDoc();
             doc.setOriginalId(p.getId());
             doc.setEstado(p.getEstado());
@@ -125,5 +130,71 @@ public class EstadisticasService {
                     ranking.add(item);
                 });
         return ranking;
+    }
+
+    public Map<String, Object> obtenerEstadisticasUsuario(String nickname) {
+        // Sincronizar datos antes de calcular
+        copiarPartidasAMongo();
+
+        List<PartidaDoc> partidas = mongoRepository.findAll();
+        int partidasJugadas = 0;
+        int victorias = 0;
+        Map<String, Integer> faccionesCount = new HashMap<>();
+        int totalRondas = 0;
+
+        for (PartidaDoc pd : partidas) {
+            for (ParticipanteDoc p : pd.getParticipantes()) {
+                if (nickname.equalsIgnoreCase(p.getNickname())) {
+                    partidasJugadas++;
+                    totalRondas += pd.getNumeroRonda();
+                    if (p.getPosicion() != null && p.getPosicion() == 1) {
+                        victorias++;
+                    }
+                    String faccion = p.getFaccionNombre();
+                    faccionesCount.put(faccion, faccionesCount.getOrDefault(faccion, 0) + 1);
+                }
+            }
+        }
+
+        String faccionFavorita = faccionesCount.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse("Ninguna");
+
+        // Estimación de tiempo: 30s por ronda + 10s de transición = 40s
+        int tiempoJugadoSegundos = totalRondas * 40;
+        int horas = tiempoJugadoSegundos / 3600;
+        int minutos = (tiempoJugadoSegundos % 3600) / 60;
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("nickname", nickname);
+        stats.put("partidasJugadas", partidasJugadas);
+        stats.put("victorias", victorias);
+        stats.put("faccionFavorita", faccionFavorita);
+        stats.put("tiempoJugado", String.format("%dh %dm", horas, minutos));
+        stats.put("rondasTotales", totalRondas);
+
+        return stats;
+    }
+
+    public void registrarPartida(PartidaDoc doc) {
+        mongoRepository.save(doc);
+    }
+
+    public void seedData() {
+        PartidaDoc doc = new PartidaDoc();
+        doc.setOriginalId(0L);
+        doc.setEstado("FINALIZADA");
+        doc.setNumeroRonda(5);
+        
+        ParticipanteDoc p1 = new ParticipanteDoc();
+        p1.setNickname("TestPlayer");
+        p1.setFaccionNombre("Faccion de Prueba");
+        p1.setFaccionTipo("MISTICO");
+        p1.setVida(100);
+        p1.setPosicion(1);
+        
+        doc.setParticipantes(List.of(p1));
+        mongoRepository.save(doc);
     }
 }

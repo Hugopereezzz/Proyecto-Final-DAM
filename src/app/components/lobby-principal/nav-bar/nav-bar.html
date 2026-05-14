@@ -27,9 +27,9 @@
       </div>
     </div>
     <div class="nav-actions">
-      <button class="action-btn">
-        <span class="icon">⚙️</span>
-        <span>AJUSTES</span>
+      <button class="action-btn" (click)="toggleStats()">
+        <span class="icon">📊</span>
+        <span>ESTADÍSTICAS</span>
       </button>
       <button class="action-btn danger" (click)="game.logout()">
         <span class="icon">🚪</span>
@@ -38,4 +38,54 @@
     </div>
   </div>
 
+</div>
+
+<!-- MODAL DE ESTADÍSTICAS -->
+<div class="stats-modal-overlay" *ngIf="showStats()" (click)="toggleStats()">
+  <div class="stats-modal-content cyber-panel panel-red" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>ESTADÍSTICAS DE PERFIL</h2>
+      <button class="close-btn" (click)="toggleStats()">✕</button>
+    </div>
+
+    <div class="stats-loading" *ngIf="loading()">
+      <span class="loader"></span>
+      <p>CARGANDO DATOS...</p>
+    </div>
+
+    <div class="stats-grid" *ngIf="!loading() && userStats() as s">
+      <div class="stat-item">
+        <span class="label">USUARIO</span>
+        <span class="value">{{ s.nickname }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">PARTIDAS JUGADAS</span>
+        <span class="value">{{ s.partidasJugadas }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">VICTORIAS</span>
+        <span class="value">{{ s.victorias }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">WIN RATE</span>
+        <span class="value">{{ (s.partidasJugadas > 0 ? (s.victorias / s.partidasJugadas * 100).toFixed(1) : 0) }}%</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">FACCIÓN FAVORITA</span>
+        <span class="value">{{ s.faccionFavorita }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">TIEMPO JUGADO</span>
+        <span class="value">{{ s.tiempoJugado }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="label">RONDAS SOBREVIVIDAS</span>
+        <span class="value">{{ s.rondasTotales }}</span>
+      </div>
+    </div>
+
+    <div class="stats-empty" *ngIf="!loading() && !userStats()">
+      <p>NO SE ENCONTRARON DATOS PARA ESTE USUARIO.</p>
+    </div>
+  </div>
 </div>

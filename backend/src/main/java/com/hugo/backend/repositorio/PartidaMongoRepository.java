@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface PartidaMongoRepository extends CrudRepository<PartidaDoc, String> {
     List<PartidaDoc> findAll();
+    java.util.Optional<PartidaDoc> findByOriginalId(Long originalId);
 }

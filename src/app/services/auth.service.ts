@@ -34,12 +34,24 @@ export class AuthService {
   private readonly router      = inject(Router);
   private readonly destroyRef  = inject(DestroyRef);
   private readonly apiUrl      = 'http://localhost:8080/api/usuarios';
+  private readonly statsUrl    = 'http://localhost:8080/api/estadisticas';
 
   /** Estado reactivo del usuario autenticado. */
-  readonly currentUser = signal<Usuario | null>(null);
+  readonly currentUser = signal<Usuario | null>(this._loadUserFromStorage());
 
   /** Suscripción al intervalo de refresco de sesión. */
   private refreshSub: Subscription | null = null;
+
+  constructor() {
+    if (this.currentUser()) {
+      this._iniciarRefrescoSesion();
+    }
+  }
+
+  private _loadUserFromStorage(): Usuario | null {
+    const saved = localStorage.getItem('usuario_sesion');
+    return saved ? JSON.parse(saved) : null;
+  }
 
   // ─── Constantes de timing ─────────────────────────────────────────
   /** Cada cuántos ms se envía el ping de refresco al backend (2 minutos). */
@@ -57,6 +69,7 @@ export class AuthService {
     return this.http.post<Usuario>(`${this.apiUrl}/login`, { nombreUsuario, contrasena }).pipe(
       tap(usuario => {
         this.currentUser.set(usuario);
+        localStorage.setItem('usuario_sesion', JSON.stringify(usuario));
         this._iniciarRefrescoSesion();
       }),
       catchError((err: HttpErrorResponse) => throwError(() => err))
@@ -82,6 +95,7 @@ export class AuthService {
     this._detenerRefrescoSesion();
     const token = this.currentUser()?.sessionToken;
     this.currentUser.set(null);
+    localStorage.removeItem('usuario_sesion');
 
     if (!token) {
       return new Observable(obs => { obs.next(null); obs.complete(); });
@@ -93,6 +107,7 @@ export class AuthService {
   clearSession(): void {
     this._detenerRefrescoSesion();
     this.currentUser.set(null);
+    localStorage.removeItem('usuario_sesion');
   }
 
   // ─── Ranking / victorias ──────────────────────────────────────────
@@ -104,6 +119,14 @@ export class AuthService {
 
   incrementarVictorias(username: string): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/incrementar-victorias/${username}`, {});
+  }
+
+  obtenerEstadisticas(nickname: string): Observable<any> {
+    return this.http.get<any>(`${this.statsUrl}/${nickname}`);
+  }
+
+  registrarPartida(partida: any): Observable<void> {
+    return this.http.post<void>(`${this.statsUrl}/registrar`, partida);
   }
 
   // ─── Heartbeat de sesión (privado) ────────────────────────────────
