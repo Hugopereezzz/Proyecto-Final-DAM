@@ -199,3 +199,128 @@
   .action-btn span:not(.icon) { display: none; }
   .action-btn .icon { margin-bottom: 0; }
 }
+
+/* ===== MODAL ESTADÍSTICAS ===== */
+.stats-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.stats-modal-content {
+  width: 90%;
+  max-width: 500px;
+  padding: 30px;
+  position: relative;
+  background: var(--panel-bg);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--neon-red);
+  padding-bottom: 12px;
+}
+
+.modal-header h2 {
+  font-family: var(--font-header);
+  font-size: 1.5rem;
+  color: var(--neon-red);
+  margin: 0;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 0, 60, 0.5);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: var(--neon-red);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 0, 60, 0.05);
+  border: 1px solid rgba(255, 0, 60, 0.2);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.stat-item:hover {
+  background: rgba(255, 0, 60, 0.1);
+  border-color: var(--neon-red);
+  transform: translateX(5px);
+}
+
+.stat-item .label {
+  font-family: var(--font-header);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.stat-item .value {
+  font-family: var(--font-main);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.stats-loading, .stats-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-family: var(--font-header);
+  letter-spacing: 1px;
+}
+
+.loader {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--neon-red);
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

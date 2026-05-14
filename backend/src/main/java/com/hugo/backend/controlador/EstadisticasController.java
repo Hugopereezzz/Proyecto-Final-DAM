@@ -46,4 +46,21 @@ public class EstadisticasController {
     public List<Map<String, Object>> rankingTiposFaccion() {
         return estadisticasService.rankingTiposFaccion();
     }
+
+    @GetMapping("/{nickname}")
+    public Map<String, Object> obtenerEstadisticasUsuario(@PathVariable String nickname) {
+        return estadisticasService.obtenerEstadisticasUsuario(nickname);
+    }
+
+    @GetMapping("/seed")
+    public String seed() {
+        estadisticasService.seedData();
+        return "Datos de prueba insertados en MongoDB";
+    }
+
+    @PostMapping("/registrar")
+    public ResponseEntity<Void> registrar(@RequestBody PartidaDoc doc) {
+        estadisticasService.registrarPartida(doc);
+        return ResponseEntity.ok().build();
+    }
 }

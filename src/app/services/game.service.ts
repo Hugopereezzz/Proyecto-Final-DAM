@@ -18,6 +18,14 @@ export class GameService {
   private readonly socketService = inject(SocketService);
   private readonly router        = inject(Router);
 
+  constructor() {
+    const user = this.auth.currentUser();
+    if (user) {
+      this.loggedInUser.set(user.nombreUsuario);
+      this.phase.set('lobby');
+    }
+  }
+
   // ── Phase & Auth ──────────────────────────────────────────────────
   phase        = signal<GamePhase>('login');
   loggedInUser = signal<string | null>(null);
@@ -309,6 +317,23 @@ export class GameService {
       this.phase.set('gameover');
       this.router.navigate(['/gameover']);
 
+      // ── GUARDAR ESTADÍSTICAS EN MONGO ──
+      const matchData = {
+        estado: 'FINALIZADA',
+        numeroRonda: this.roundNumber(),
+        participantes: fighters.map(f => ({
+          nickname: f.playerName,
+          faccionNombre: f.name,
+          faccionTipo: f.lore?.substring(0, 15) || 'COMBATE',
+          vida: f.hp,
+          posicion: f.alive ? 1 : 2 // Simplificado: 1 para el ganador, 2 para los demás
+        }))
+      };
+      this.auth.registrarPartida(matchData).subscribe({
+        next: () => console.log('Partida registrada en MongoDB.'),
+        error: (err) => console.error('Error al registrar partida en Mongo:', err)
+      });
+
       // Update backend if I am the winner
       const myUsername = this.loggedInUser();
       if (myUsername && winnerPlayer === myUsername) {
@@ -371,6 +396,20 @@ export class GameService {
       this.winner.set(winnerName);
       this.phase.set('gameover');
       this.router.navigate(['/gameover']);
+
+      // ── GUARDAR ESTADÍSTICAS EN MONGO (POR RENDICIÓN) ──
+      const matchData = {
+        estado: 'FINALIZADA',
+        numeroRonda: this.roundNumber(),
+        participantes: fighters.map(f => ({
+          nickname: f.playerName,
+          faccionNombre: f.name,
+          faccionTipo: f.lore?.substring(0, 15) || 'COMBATE',
+          vida: f.hp,
+          posicion: f.alive ? 1 : 2
+        }))
+      };
+      this.auth.registrarPartida(matchData).subscribe();
 
       // Update backend if I am the winner
       const myUsername = this.loggedInUser();
