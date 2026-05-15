@@ -73,10 +73,10 @@
 .chat-input-area {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 8px; /* Reduced padding */
   border-top: 1px solid var(--neon-cyan-dim);
   background: rgba(0, 0, 0, 0.25);
-  gap: 8px;
+  gap: 4px; /* Reduced gap */
   flex-shrink: 0;
 }
 
@@ -90,6 +90,7 @@
   letter-spacing: 0.5px;
   outline: none;
   padding: 4px 0;
+  min-width: 0; /* Important for flex layout */
 }
 
 .chat-input::placeholder {
@@ -105,7 +106,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  padding: 2px; /* Reduced padding */
   transition: transform 0.15s, filter 0.15s;
   flex-shrink: 0;
 }
@@ -116,3 +117,43 @@
 }
 
 .btn-send .icon { font-size: 16px; }
+
+.btn-war-cry {
+  background: transparent;
+  border: none;
+  color: #ffcc00; /* Yellow for thunder */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px; /* Reduced padding */
+  transition: transform 0.15s, filter 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-war-cry:hover {
+  transform: scale(1.3) translateY(-2px);
+  filter: drop-shadow(0 0 6px #ffcc00);
+}
+
+.btn-war-cry .icon { font-size: 18px; }
+
+.btn-reverse {
+  background: transparent;
+  border: none;
+  color: #00f0ff; 
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px; /* Reduced padding */
+  transition: transform 0.15s, filter 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-reverse:hover {
+  transform: rotate(-180deg) scale(1.2);
+  filter: drop-shadow(0 0 6px #00f0ff);
+}
+
+.btn-reverse .icon { font-size: 16px; }
