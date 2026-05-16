@@ -1,3 +1,6 @@
+// src/app/components/sala-juego/sala-juego.ts
+// Este archivo representa la sala de espera (lobby) de una partida multijugador.
+// Aqui los jugadores pueden chatear, elegir su faccion y darle a "Listo" antes de empezar la batalla.
 import { Component, inject, input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -52,12 +55,7 @@ import { GameService } from '../../services/game.service';
             </div>
           }
         </div>
-        <div class="c-i">
-          <input [(ngModel)]="txt" (keydown.enter)="send()" placeholder="Chat...">
-          <button (click)="reversePhrase()" title="Invertir frase" class="btn-rev">🔄</button>
-          <button (click)="warCry()" title="Grito de Guerra" class="btn-war">⚡</button>
-          <button (click)="send()">🚀</button>
-        </div>
+        <div class="c-i"><input [(ngModel)]="txt" (keydown.enter)="send()" placeholder="Chat..."><button (click)="send()">🚀</button></div>
       </div>
     </div>
   `,
@@ -86,13 +84,9 @@ import { GameService } from '../../services/game.service';
     .c-m { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
     .m { font-size: 11px; display: flex; gap: 5px; } .mu { font-weight: 900; color: #00f0ff; } .mt { font-size: 9px; color: #555; }
     .m.sys { color: #fbbf24; } .m.yo .mu { color: #fff; }
-    .c-i { display: flex; gap: 3px; margin-top: 10px; }
-    input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; min-width: 0; }
-    .c-i button { background: #00f0ff; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; }
-    .c-i button.btn-war { background: transparent; color: #ffcc00; font-size: 16px; transition: .2s; }
-    .c-i button.btn-war:hover { transform: scale(1.3); filter: drop-shadow(0 0 5px #ffcc00); }
-    .c-i button.btn-rev { background: transparent; color: #00f0ff; font-size: 15px; transition: .3s; }
-    .c-i button.btn-rev:hover { transform: rotate(-180deg) scale(1.2); filter: drop-shadow(0 0 5px #00f0ff); }
+    .c-i { display: flex; gap: 5px; margin-top: 10px; }
+    input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid #333; color: #fff; padding: 8px; border-radius: 4px; }
+    .c-i button { background: #00f0ff; border: none; border-radius: 4px; cursor: pointer; }
     @media (max-width: 800px) { .wrap { flex-direction: column; height: auto; } .chat { width: 100%; height: 400px; } }
   `]
 })
@@ -134,24 +128,6 @@ export class SalaJuegoComponent implements OnInit {
   isTk(id: string) { return this.s?.jugadores.some(j => j.faccionId === id && j.socketId !== this.ss.getMiSocketId()) || false; }
   selF(id: string) { if (!this.isTk(id)) this.ss.seleccionarFaccion(id); }
   send() { if (this.txt.trim()) { this.ss.enviarMensajeSala(this.txt.trim()); this.txt = ''; } }
-  warCry() {
-    if (this.txt.trim()) {
-      const g = `⚡⚡⚡ ${this.txt.trim().toUpperCase()} ⚡⚡⚡`;
-      this.ss.enviarMensajeSala(g);
-      this.txt = '';
-    }
-  }
-  reversePhrase() {
-    if (this.txt.trim()) {
-      const original = this.txt.trim();
-      const rev = original.split('').reverse().join('');
-      const clean = (s: string) => s.toLowerCase().replace(/[\W_]/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const isP = clean(original) === clean(rev);
-      const res = `🔄 [REVERSO]: ${rev} | ${isP ? '✅ PALÍNDROMO' : '❌ NO PALÍNDROMO'}`;
-      this.ss.enviarMensajeSala(res);
-      this.txt = '';
-    }
-  }
   out() { this.ss.salirSala(); this.router.navigate(['/lobby']); }
   copy() { navigator.clipboard.writeText(this.id()).then(() => { this.cp = true; setTimeout(()=>this.cp=false,2000); }); }
   scroll() { setTimeout(() => { const e = document.querySelector('.c-m'); if(e) e.scrollTop = e.scrollHeight; }, 50); }

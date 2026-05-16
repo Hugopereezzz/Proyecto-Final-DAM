@@ -1,3 +1,6 @@
+// src/app/components/lobby-principal/global-chat/global-chat.ts
+// Este archivo gestiona el chat publico del lobby.
+// Escucha los mensajes que llegan por WebSockets y permite enviar nuevos mensajes a todos.
 import { Component, inject, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -38,27 +41,6 @@ export class GlobalChatComponent implements OnInit, AfterViewChecked {
   enviarMensaje() {
     if (!this.nuevoMensaje.trim()) return;
     this.ss.enviarMensajeGlobal(this.nuevoMensaje.trim());
-    this.nuevoMensaje = '';
-  }
-
-  gritoDeGuerra() {
-    if (!this.nuevoMensaje.trim()) return;
-    const grito = `⚡⚡⚡ ${this.nuevoMensaje.trim().toUpperCase()} ⚡⚡⚡`;
-    this.ss.enviarMensajeGlobal(grito);
-    this.nuevoMensaje = '';
-  }
-
-  analizarFrase() {
-    if (!this.nuevoMensaje.trim()) return;
-    const original = this.nuevoMensaje.trim();
-    const reverse = original.split('').reverse().join('');
-    
-    // Limpiar para palindromo: quitar espacios, acentos y pasar a minusculas
-    const clean = (str: string) => str.toLowerCase().replace(/[\W_]/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const esPalindromo = clean(original) === clean(reverse);
-    
-    const result = `🔄 [REVERSO]: ${reverse} | ${esPalindromo ? '✅ ¡ES PALÍNDROMO!' : '❌ NO ES PALÍNDROMO'}`;
-    this.ss.enviarMensajeGlobal(result);
     this.nuevoMensaje = '';
   }
 

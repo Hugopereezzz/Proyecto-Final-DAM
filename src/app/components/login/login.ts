@@ -1,4 +1,6 @@
 // src/app/components/login/login.ts
+// Este archivo representa la pantalla de inicio de sesion y registro.
+// Se encarga de recoger las credenciales del usuario y enviarlas al AuthService.
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';

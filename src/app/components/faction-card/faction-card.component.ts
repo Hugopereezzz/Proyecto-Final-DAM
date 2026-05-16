@@ -1,3 +1,6 @@
+// src/app/components/faction-card/faction-card.component.ts
+// Este componente dibuja una tarjeta de faccion (con su nombre, historia y color).
+// Se usa principalmente en la pantalla de seleccion de facciones.
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FactionTemplate } from '../../models/game.models';

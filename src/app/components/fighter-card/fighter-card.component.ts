@@ -1,3 +1,6 @@
+// src/app/components/fighter-card/fighter-card.component.ts
+// Este archivo representa la tarjeta visual de un combatiente durante la batalla.
+// Muestra su vida (HP), escudo, nombre y si ya ha confirmado su jugada.
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Fighter } from '../../models/game.models';

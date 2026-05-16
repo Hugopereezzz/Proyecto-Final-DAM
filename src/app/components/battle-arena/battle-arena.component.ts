@@ -1,3 +1,7 @@
+// src/app/components/battle-arena/battle-arena.component.ts
+// Este archivo es el componente principal de la batalla (la arena).
+// Se encarga de mostrar los combatientes, manejar el temporizador, recoger los planes de ataque de los jugadores
+// y mostrar el registro visual de lo que ocurre en cada ronda.
 import { Component, inject, signal, computed, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';

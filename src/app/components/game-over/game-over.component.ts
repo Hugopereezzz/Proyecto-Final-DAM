@@ -1,3 +1,6 @@
+// src/app/components/game-over/game-over.component.ts
+// Este archivo representa la pantalla final cuando termina la partida.
+// Muestra si has ganado o perdido, las estadisticas de la batalla y un resumen.
 import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GameService } from '../../services/game.service';
