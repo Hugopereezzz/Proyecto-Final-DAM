@@ -146,13 +146,19 @@ import { Subscription } from 'rxjs';
   `]
 })
 export class FactionSelectComponent implements OnInit, OnDestroy {
+  // Servicio de Juego inyectado para gestionar el estado de los combatientes local y globalmente
   game = inject(GameService);
+  // Servicio de Sockets inyectado para propagar elecciones e inicios en el modo multijugador
   socketService = inject(SocketService);
+  // Colección de suscripciones RxJS para desvincularlas al destruir el componente y evitar fugas de memoria
   private subs: Subscription[] = [];
 
+  // Señal que almacena una tabla asociativa de la facción elegida por cada socketId de jugador
   jugadoresSelecciones = signal<Record<string, string>>({});
+  // Permite acceder al constructor global Object desde el template de Angular
   Object = Object;
 
+  // Computado reactivo que determina si se dan las condiciones mínimas para iniciar el combate
   canStartBattle = computed(() => {
     if (!this.game.isMultiplayer()) return this.game.selectedFactionIds().length >= 2;
     const sel = Object.keys(this.jugadoresSelecciones()).length;
@@ -160,6 +166,7 @@ export class FactionSelectComponent implements OnInit, OnDestroy {
     return sel === tot && tot >= 2;
   });
 
+  // Al iniciar, si es partida multijugador, escucha cuándo el otro jugador elige facción o arranca el host la batalla
   ngOnInit() {
     if (this.game.isMultiplayer()) {
       this.subs.push(
@@ -173,10 +180,13 @@ export class FactionSelectComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Ciclo de vida para cancelar las suscripciones activas del socket al salir de la pantalla
   ngOnDestroy() { this.subs.forEach(s => s.unsubscribe()); }
 
+  // Retorna el objeto completo de una facción buscándola en el servicio por su ID
   getFaction(id: string) { return this.game.factions.find(f => f.id === id); }
 
+  // Selecciona o deselecciona una facción. Sincroniza mediante socket si es multijugador.
   toggleFaction(id: string) {
     if (this.game.isMultiplayer()) {
       this.game.selectedFactionIds.set([id]);
@@ -187,6 +197,8 @@ export class FactionSelectComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Genera el orden aleatorio y arranca la batalla enviando la orden a los sockets si es multijugador,
+  // o pasándole los ID de las facciones directamente al GameService local
   startBattle() {
     if (this.game.isMultiplayer()) {
       const players = this.game.multiplayerPlayers();
@@ -196,6 +208,7 @@ export class FactionSelectComponent implements OnInit, OnDestroy {
         ids.push(this.jugadoresSelecciones()[p.socketId]);
         nombres.push(p.nombre);
       }
+      // Algoritmo de barajado (Fisher-Yates) para determinar el orden de turnos inicial al azar
       const order = ids.map((_, i) => i);
       for (let i = order.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -208,10 +221,12 @@ export class FactionSelectComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Modo rápido de prueba local: Elige 4 facciones al azar e inicia la batalla de inmediato
   quickStart() {
     const shuffled = [...this.game.factions].sort(() => Math.random() - 0.5).slice(0, 4);
     this.game.startBattle(shuffled.map(f => f.id));
   }
 
+  // Modo de prueba local masiva: Lanza el combate cargando las 8 facciones de golpe
   allFactions() { this.game.startBattle(this.game.factions.map(f => f.id)); }
 }

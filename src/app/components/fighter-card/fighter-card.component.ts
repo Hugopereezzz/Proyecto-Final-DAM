@@ -121,10 +121,15 @@ import { Fighter } from '../../models/game.models';
   `]
 })
 export class FighterCardComponent {
+  // Input obligatorio que recibe el objeto Fighter con los datos de vida, escudo, vivo, etc. del combatiente
   fighter      = input.required<Fighter>();
+  // Input opcional que almacena el índice numérico de la posición del luchador en el array del servicio
   fighterIndex = input<number>(0);
+  // Input booleano que define si es el turno de planificar la acción para este combatiente específico
   isPlanning   = input(false);
 
+  // Calcula de forma reactiva el porcentaje de salud restante del luchador para el llenado de la barra
   get hpPct()     { return Math.max(0, (this.fighter().hp / this.fighter().maxHp) * 100); }
+  // Calcula el porcentaje equivalente de escudo restante basándose en el HP máximo para la barra de escudo azul
   get shieldPct() { return Math.min(100, (this.fighter().shieldHp / this.fighter().maxHp) * 100); }
 }

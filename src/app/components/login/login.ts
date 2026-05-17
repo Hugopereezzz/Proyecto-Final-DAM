@@ -49,18 +49,30 @@ import { GameService } from '../../services/game.service';
   `]
 })
 export class LoginComponent {
+  // Servicio de Autenticación inyectado para comunicarse con la API de login/registro del backend
   private readonly auth = inject(AuthService);
+  // Servicio de Juego global para actualizar el estado del usuario cuando inicie sesión con éxito
   private readonly game = inject(GameService);
 
+  // Señal que determina si estamos en la vista de Registro (true) o en la de Login (false)
   isReg    = signal(false);
+  // Campo reactivo (Model-binding) que almacena el nombre del usuario introducido
   u        = '';
+  // Campo reactivo (Model-binding) que almacena la contraseña introducida
   p        = '';
+  // Señal reactiva para gestionar y mostrar los mensajes de error o éxito
   err      = signal('');
+  // Bloquea el formulario y los botones mostrando "Espera..." para evitar doble envío en peticiones lentas
   loading  = signal(false);
 
+  // Cambia cómodamente entre los modos de Login y Registro de la tarjeta limpiando los errores previos
   toggle(): void  { this.isReg.update(v => !v); this.err.set(''); }
+  
+  // Enrutador de envío del formulario que decide la acción basándose en la vista actual
   onSubmit(): void { this.isReg() ? this.onReg() : this.onLog(); }
 
+  // Envía la petición HTTP de inicio de sesión. Si el backend retorna 200, guarda el usuario.
+  // Si devuelve 409, informa que ya tiene una pestaña con sesión activa para impedir concurrencia.
   onLog(): void {
     if (!this.u || !this.p) return this.err.set('Completa los campos');
     this.loading.set(true);
@@ -78,6 +90,8 @@ export class LoginComponent {
     });
   }
 
+  // Envía los datos para crear un usuario nuevo en la base de datos MySQL.
+  // Tras el éxito, bloquea la carga y redirige de vuelta al login para que inicie sesión normalmente.
   onReg(): void {
     if (!this.u || !this.p) return this.err.set('Completa los campos');
     this.loading.set(true);

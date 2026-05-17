@@ -87,18 +87,27 @@ import { GameService } from '../../services/game.service';
   `]
 })
 export class GameOverComponent {
+  // Inyección del servicio de juego para acceder a los datos de la batalla finalizada
   game = inject(GameService);
 
+  // Obtiene los datos de la facción ganadora a partir del nombre del ganador
   wf           = computed(() => this.game.factions.find(f => f.name === this.game.winner()));
+  
+  // Determina si el jugador actual es el que ha ganado la partida
   isWinner     = computed(() => {
     const winnerName = this.game.winner();
     const myFighter  = this.game.fighters()[this.game.myFighterIdx()];
-    if (!myFighter) return true; // Default to win display in single player if winner name is present
+    if (!myFighter) return true; // Por defecto se asume victoria en modo un jugador si hay ganador
     return myFighter.name === winnerName;
   });
+
+  // Cuenta la cantidad de ataques registrados en el historial de la batalla
   attackCount  = computed(() => this.game.battleLog().filter(e => e.type === 'attack').length);
+  
+  // Cuenta la cantidad de escudos activados registrados en el historial de la batalla
   shieldCount  = computed(() => this.game.battleLog().filter(e => e.type === 'shield').length);
 
+  // Array que genera estilos dinámicos para simular partículas/confeti de celebración flotando de fondo
   particles = Array.from({ length: 20 }, (_, i) => {
     const c = ['#ffd700','#7c3aed','#ef4444','#22c55e','#60a5fa','#f97316','#00d4ff'][i % 7];
     return `left:${Math.random()*100}%;width:${3+Math.random()*8}px;height:${3+Math.random()*8}px;background:${c};animation-duration:${5+Math.random()*7}s;animation-delay:${Math.random()*5}s;`;

@@ -15,13 +15,20 @@ import { signal } from '@angular/core';
   styleUrls: ['./nav-bar.css']
 })
 export class NavBarComponent {
+  // Servicio de Juego inyectado para obtener datos rápidos del usuario (como el nombre del logueado)
   readonly game = inject(GameService);
+  // Servicio de Autenticación inyectado para consumir la API de estadísticas del jugador
   private readonly auth = inject(AuthService);
 
+  // Señal reactiva (Signal) de Angular para controlar la visibilidad del modal de estadísticas
   showStats = signal<boolean>(false);
+  // Señal que almacena el objeto de estadísticas detalladas recibido del servidor
   userStats = signal<any>(null);
+  // Señal que gestiona el estado de carga mientras se solicita la información a la API
   loading = signal<boolean>(false);
 
+  // Muestra u oculta el modal de estadísticas. Si se va a abrir, realiza una petición HTTP al backend
+  // para traer los datos estadísticos más recientes del usuario logueado en ese momento.
   toggleStats() {
     console.log('toggleStats called. Current state:', this.showStats());
     if (!this.showStats()) {

@@ -347,37 +347,54 @@ interface DraftPlan {
   `]
 })
 export class BattleArenaComponent {
+  // Servicio de Juego inyectado para gestionar la lógica de turnos, rondas, luchadores y logs
   game          = inject(GameService);
+  // Servicio de Sockets inyectado para enviar los planes y rendiciones al oponente en red
   socketService = inject(SocketService);
 
+  // Señal que indica la pestaña (luchador) seleccionada en el menú local (Modo 1 jugador/pruebas)
   activeTab   = signal<number>(0);
+  // Borradores temporales de los planes de cada luchador antes de confirmarlos
   draftPlans  = signal<{ [fighterIdx: number]: DraftPlan }>({});
 
-  // ── Derived ──────────────────────────────────────────────────────
+  // ── Computados Reactivos (Derived) ────────────────────────────────────────────────
+  
+  // Obtiene el índice del luchador activo basándose en el modo (multijugador o local con pestañas)
   activeFighterIdx = computed(() =>
     this.game.isMultiplayer() ? this.game.myFighterIdx() : this.activeTab()
   );
 
+  // Retorna el objeto del luchador que estamos configurando actualmente
   activeFighter = computed(() => this.game.fighters()[this.activeFighterIdx()]);
 
+  // Obtiene el borrador temporal de ataques y escudos del luchador activo
   activeDraft = computed<DraftPlan>(() =>
     this.draftPlans()[this.activeFighterIdx()] ?? { attacks: {}, shieldMissiles: 0 }
   );
 
+  // Calcula cuántos misiles del presupuesto de 50 ya han sido asignados a ataques o defensas
   missilesUsed = computed(() => {
     const d = this.activeDraft();
     return Object.values(d.attacks).reduce((s, m) => s + (m as number), 0) + d.shieldMissiles;
   });
 
+  // Calcula cuántos misiles quedan libres por asignar
   missilesLeft = computed(() => 50 - this.missilesUsed());
+  
+  // Traduce el coste en misiles de defensa a puntos reales de escudo (2 misiles = 1 escudo)
   shieldPts    = computed(() => Math.floor(this.activeDraft().shieldMissiles / 2));
+  
+  // Porcentaje del temporizador de 30s de planificación restante para pintar la barra de progreso superior
   timerPct     = computed(() => (this.game.planningTimeLeft() / 30) * 100);
 
+  // Indica si el luchador actual ya ha pulsado el botón de confirmar plan en esta ronda
   confirmed = computed(() => this.game.fighters()[this.activeFighterIdx()]?.planConfirmed ?? false);
+  
+  // Indica si el usuario puede seguir planificando (está vivo y no hay un ganador de partida definitivo)
   canPlan   = computed(() => this.activeFighter()?.alive && !this.game.winner());
 
   constructor() {
-    // Auto-move to first alive unconfirmed tab when fighters change
+    // Efecto reactivo: Cambia automáticamente de pestaña a un luchador vivo y sin confirmar si el actual se bloquea
     effect(() => {
       const fighters = this.game.fighters();
       const cur = this.activeTab();
@@ -387,26 +404,26 @@ export class BattleArenaComponent {
       }
     });
 
-    // Reset drafts on new round
+    // Efecto reactivo: Resetea los borradores de misiles y mueve la vista al primer luchador vivo al iniciar nueva ronda
     effect(() => {
-      this.game.roundNumber(); // subscribe
+      this.game.roundNumber(); // Suscripción implícita para disparar el efecto al cambiar la ronda
       this.draftPlans.set({});
       const firstAlive = this.game.fighters().findIndex(f => f.alive);
       if (firstAlive >= 0) this.activeTab.set(firstAlive);
     });
 
-    // Multiplayer: receive plan confirmations from server (to show green checks)
+    // Escucha de Sockets (Multijugador): Recibe las confirmaciones de plan del oponente para pintar su check en verde
     this.socketService.onPlanRecibido().pipe(takeUntilDestroyed()).subscribe(data => {
       this.game.submitPlan(data.actorIdx, data.plan);
     });
 
-    // Multiplayer: receive final resolution from server
+    // Escucha de Sockets (Multijugador): Recibe los planes de la ronda finalizada del servidor y calcula la resolución
     this.socketService.onRondaResuelta().pipe(takeUntilDestroyed()).subscribe(data => {
       console.log('Resolución recibida del servidor:', data);
       this.game.resolveMultiplayerRound(data.planes, data.seed);
     });
 
-    // Multiplayer: receive special actions (like surrender)
+    // Escucha de Sockets (Multijugador): Recibe acciones especiales como la rendición del oponente
     this.socketService.onAccionRecibida().pipe(takeUntilDestroyed()).subscribe(a => {
       if (a.abilityId === 'system_surrender') {
         this.game.applySurrender(a.targetIdx);
@@ -414,35 +431,46 @@ export class BattleArenaComponent {
     });
   }
 
-  // ── Getters ───────────────────────────────────────────────────────
+  // ── Getters Auxiliares ─────────────────────────────────────────────────────────────
+  
+  // Obtiene los misiles asignados como ataque contra un objetivo específico
   getAtk(targetIdx: number): number {
     return (this.activeDraft().attacks[targetIdx] as number) ?? 0;
   }
 
+  // Obtiene la cantidad de misiles destinados a la defensa
   draftShield(): number { return this.activeDraft().shieldMissiles; }
 
-  // ── Mutations ─────────────────────────────────────────────────────
+  // ── Mutaciones y Cambios de Estado ────────────────────────────────────────────────
+  
+  // Actualiza parcialmente el borrador del plan del luchador activo preservando el resto de campos
   private patchDraft(patch: Partial<DraftPlan>) {
     const fi = this.activeFighterIdx();
     const cur = this.activeDraft();
     this.draftPlans.update(dp => ({ ...dp, [fi]: { ...cur, ...patch } }));
   }
 
+  // Modifica los misiles asignados para atacar a una facción enemiga usando el deslizador (slider)
   onAtkChange(targetIdx: number, event: Event) {
     const val = +(event.target as HTMLInputElement).value;
     this.patchDraft({ attacks: { ...this.activeDraft().attacks, [targetIdx]: val } });
   }
 
+  // Modifica los misiles asignados para la defensa de la facción actual usando el deslizador
   onShieldChange(event: Event) {
     const val = +(event.target as HTMLInputElement).value;
     this.patchDraft({ shieldMissiles: val });
   }
 
+  // Cambia manualmente de pestaña (solo permitido en modo local/un jugador)
   setTab(i: number) {
     if (!this.game.isMultiplayer()) this.activeTab.set(i);
   }
 
-  // ── Confirm plan ──────────────────────────────────────────────────
+  // ── Confirmar Planificación ───────────────────────────────────────────────────────
+  
+  // Compila el borrador actual (ataques y defensas), calcula costes e inicia la confirmación local
+  // y a través de sockets si nos encontramos en una partida multijugador en red
   confirmPlan() {
     const fi = this.activeFighterIdx();
     const draft = this.activeDraft();
@@ -465,7 +493,9 @@ export class BattleArenaComponent {
     this.game.submitPlan(fi, plan);
   }
 
-  // ── Surrender ─────────────────────────────────────────────────────
+  // ── Rendición de combate ─────────────────────────────────────────────────────────
+  
+  // Abandona la batalla actual, destruyendo la facción del jugador y avisando al servidor
   surrender() {
     const idx = this.activeFighterIdx();
     if (this.game.isMultiplayer()) {

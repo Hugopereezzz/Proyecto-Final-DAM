@@ -15,17 +15,24 @@ import { AuthService, Usuario } from '../../../services/auth.service';
   styleUrls: ['./global-ranking.css']
 })
 export class GlobalRankingComponent implements OnInit {
+  // Servicio de autenticación inyectado para obtener la clasificación de usuarios
   auth = inject(AuthService);
+  // Lista de usuarios ordenados por victorias (ranking) que se muestra en la vista
   ranking: Usuario[] = [];
+  // Controla el estado de carga visual en la pantalla
   cargando = true;
+  // Almacena un mensaje de error si ocurre un fallo al obtener el ranking desde la API
   error: string | null = null;
 
   constructor() {
+    // Establece un temporizador periódico que recarga el ranking automáticamente cada 5 segundos
     interval(5000).pipe(takeUntilDestroyed()).subscribe(() => this.load());
   }
 
+  // Carga inicial del ranking al iniciar el componente
   ngOnInit() { this.load(); }
 
+  // Consume el endpoint del backend para obtener el ranking y maneja la respuesta o el error
   load() {
     this.auth.obtenerRanking().subscribe({
       next: (d) => { this.ranking = d; this.cargando = false; },

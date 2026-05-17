@@ -26,17 +26,24 @@ import { GameService } from '../../services/game.service';
   styleUrls: ['./lobby-principal.css']
 })
 export class LobbyPrincipalComponent implements OnInit {
+  // Servicio de Sockets inyectado para la gestión de comunicación en tiempo real
   private readonly ss = inject(SocketService);
+  // Servicio de Juego global inyectado para obtener los datos de la sesión actual
   readonly gs         = inject(GameService);
+  // Enrutador de Angular para poder redirigir al usuario entre páginas
   private readonly router = inject(Router);
 
   constructor() {}
 
+  // Al iniciar el componente, conecta el WebSocket utilizando el nombre del usuario
+  // logueado y pide la lista de salas públicas que estén disponibles para jugar
   ngOnInit(): void { 
     this.ss.conectar(this.gs.loggedInUser() ?? 'Jugador'); 
     this.ss.pedirSalas();
   }
 
+  // Se ejecuta al unirse con éxito a una sala (desde la lista de disponibles o creando una).
+  // Redirige la pantalla del usuario a la vista de la sala utilizando su código único.
   onSalaUnida(d: { codigo: string; sala: Sala }) {
     this.router.navigate(['/sala', d.codigo]);
   }

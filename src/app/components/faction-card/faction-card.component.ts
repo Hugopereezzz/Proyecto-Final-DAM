@@ -65,11 +65,16 @@ import { FactionTemplate } from '../../models/game.models';
   `]
 })
 export class FactionCardComponent {
+  // Input obligatorio que almacena la información detallada de la plantilla de la facción (color, historia, etc.)
   @Input() faction!: FactionTemplate;
+  // Input booleano que determina si el jugador tiene seleccionada esta facción
   @Input() selected  = false;
+  // Input booleano para bloquear la tarjeta (por ejemplo, si otro jugador ya la ha seleccionado)
   @Input() disabled  = false;
+  // Evento emisor (Output) para notificar al componente superior que se ha seleccionado esta facción enviando su ID único
   @Output() selectedChange = new EventEmitter<string>();
 
+  // Maneja la acción de selección de la tarjeta al hacer clic en ella (siempre y cuando no esté deshabilitada)
   onSelect() {
     if (!this.disabled || this.selected) this.selectedChange.emit(this.faction.id);
   }

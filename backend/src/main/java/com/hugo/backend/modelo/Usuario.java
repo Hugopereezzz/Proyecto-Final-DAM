@@ -39,8 +39,8 @@ public class Usuario {
     @Column
     private String email;
 
-    private Integer monedas = 0;    //Monedas del usuario, empieza en 0
-    private Integer victorias = 0;  //Victorias del usuario, empieza en 0
+    private Integer monedas;    //Monedas del usuario
+    private Integer victorias;  //Victorias del usuario
 
     //Token que se genera cuando el usuario hace login y se borra cuando hace logout.
     //Si este campo tiene algun valor, significa que el usuario tiene una sesion activa.

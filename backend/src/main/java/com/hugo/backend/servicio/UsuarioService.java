@@ -30,6 +30,7 @@ public class UsuarioService {
     public Usuario guardarUsuario(Usuario usuario) {
         usuario.setPassword(passwordEncoder.encode(usuario.getPassword())); //Encripta la contrasena
         usuario.setMonedas(0); //Empieza sin monedas
+        usuario.setVictorias(0); //Empieza sin victorias
         return usuarioRepository.save(usuario);
     }
 

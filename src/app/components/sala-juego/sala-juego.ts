@@ -91,15 +91,32 @@ import { GameService } from '../../services/game.service';
   `]
 })
 export class SalaJuegoComponent implements OnInit {
-  ss = inject(SocketService); gs = inject(GameService); router = inject(Router);
+  // Servicio de Sockets inyectado para comunicarse con la sala multijugador en tiempo real
+  ss = inject(SocketService);
+  // Servicio de Juego global inyectado para acceder a las facciones cargadas y estados
+  gs = inject(GameService);
+  // Enrutador de Angular para poder salir de la sala e irse al lobby principal
+  router = inject(Router);
+  
+  // Código único de la sala que viene directamente del parámetro de la ruta URL (Input requerido)
   id = input.required<string>();
+  // Nombre del usuario actual (o 'Jugador' por defecto si no ha iniciado sesión)
   mn = this.gs.loggedInUser() ?? 'Jugador';
   
-  s: Sala | null = null; msgs: MensajeChat[] = []; txt = ''; cp = false;
+  // Datos detallados de la sala actual (nombre, jugadores, host, tipo)
+  s: Sala | null = null;
+  // Historial de mensajes de chat enviados dentro de la sala de espera
+  msgs: MensajeChat[] = [];
+  // Campo que enlaza el texto que el usuario está escribiendo para chatear
+  txt = '';
+  // Bandera reactiva para cambiar visualmente el botón de copiado de código al tener éxito
+  cp = false;
 
   constructor() {
+    // Escucha las actualizaciones de la sala del servidor (jugadores que entran, salen o cambian facción)
     this.ss.onSalaActualizada().pipe(takeUntilDestroyed()).subscribe(s => {
       if (!this.s && s) {
+        // Añade un mensaje de bienvenida del sistema al entrar por primera vez
         this.msgs.push({ 
           remitente: 'SISTEMA', 
           contenido: 'SALA: ' + s.nombre, 
@@ -109,10 +126,13 @@ export class SalaJuegoComponent implements OnInit {
       }
       this.s = s;
     });
+    // Escucha los mensajes de chat enviados por otros miembros de la sala de espera y autodesplaza el chat
     this.ss.onMensajeSala().pipe(takeUntilDestroyed()).subscribe(m => { this.msgs.push(m); this.scroll(); });
+    // Escucha el aviso de comienzo de la partida multijugador para iniciar el combate cargando luchadores
     this.ss.onBatallaComenzada().pipe(takeUntilDestroyed()).subscribe(d => { this.gs.isMultiplayer.set(true); this.gs.startBattle(d.ids, d.order, d.nombres); });
   }
 
+  // Al inicializar el componente, conecta el WebSocket si no está activo y solicita unirse a la sala con el ID de la ruta
   ngOnInit() {
     if (!this.ss.estaConectado()) {
       this.ss.conectar(this.mn);
@@ -120,15 +140,26 @@ export class SalaJuegoComponent implements OnInit {
     this.ss.unirseSala(this.id());
   }
 
+  // Determina si el jugador actual es el anfitrión (host) creador de la sala de espera
   get soyH() { return this.s?.host === this.ss.getMiSocketId(); }
+  // Determina si todos los jugadores de la sala están marcados como "listo" para arrancar
   get allR() { return this.s?.jugadores.every(j => j.listo) || false; }
+  // Determina si todos los jugadores de la sala han elegido una facción
   get allF() { return this.s?.jugadores.every(j => !!j.faccionId) || false; }
+  // Obtiene el objeto de información del propio jugador dentro de la lista de miembros de la sala
   get mj() { return this.s?.jugadores.find(j => j.socketId === this.ss.getMiSocketId()); }
+  // Busca una facción específica por su ID en la lista global de facciones del GameService
   f(id: string) { return this.gs.factions.find(f => f.id === id); }
+  // Comprueba si una facción concreta ya está ocupada/tomada por otro jugador de la sala (evita duplicados)
   isTk(id: string) { return this.s?.jugadores.some(j => j.faccionId === id && j.socketId !== this.ss.getMiSocketId()) || false; }
+  // Selecciona una facción libre para el jugador actual comunicándolo al servidor mediante socket
   selF(id: string) { if (!this.isTk(id)) this.ss.seleccionarFaccion(id); }
+  // Envía un mensaje de chat a la sala de espera y limpia la caja de texto
   send() { if (this.txt.trim()) { this.ss.enviarMensajeSala(this.txt.trim()); this.txt = ''; } }
+  // Abandona la sala actual avisando al servidor y redirige la pantalla al menú principal del lobby
   out() { this.ss.salirSala(); this.router.navigate(['/lobby']); }
+  // Copia el ID de la sala de espera en el portapapeles del sistema para compartirlo fácilmente
   copy() { navigator.clipboard.writeText(this.id()).then(() => { this.cp = true; setTimeout(()=>this.cp=false,2000); }); }
+  // Desplaza automáticamente el contenedor de mensajes hacia abajo cuando hay mucho historial
   scroll() { setTimeout(() => { const e = document.querySelector('.c-m'); if(e) e.scrollTop = e.scrollHeight; }, 50); }
 }
