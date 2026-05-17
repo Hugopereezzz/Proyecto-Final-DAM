@@ -36,8 +36,8 @@ export class AuthService {
   private readonly http        = inject(HttpClient);
   private readonly router      = inject(Router);
   private readonly destroyRef  = inject(DestroyRef);
-  private readonly apiUrl      = 'http://localhost:8080/api/usuarios';
-  private readonly statsUrl    = 'http://localhost:8080/api/estadisticas';
+  private readonly apiUrl      = `http://${window.location.hostname}:8080/api/usuarios`;
+  private readonly statsUrl    = `http://${window.location.hostname}:8080/api/estadisticas`;
 
   /** Estado reactivo del usuario autenticado. */
   readonly currentUser = signal<Usuario | null>(this._loadUserFromStorage());

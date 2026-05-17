@@ -45,7 +45,7 @@ export interface MensajeChat {
 })
 export class SocketService {
   private socket: Socket;
-  private readonly URL_SERVIDOR = 'http://localhost:3000';
+  private readonly URL_SERVIDOR = `http://${window.location.hostname}:3000`;
 
   constructor() {
     this.socket = io(this.URL_SERVIDOR, {
