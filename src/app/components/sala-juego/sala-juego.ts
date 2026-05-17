@@ -17,8 +17,8 @@ import { GameService } from '../../services/game.service';
     <div class="wrap">
       <div class="info cyber-panel">
         <div class="head">
-          <div class="title"><h2>{{ s?.nombre || 'Conectando...' }}</h2><span class="type" *ngIf="s">{{ s?.tipo }}</span></div>
-          <div class="code"><span>🔑 {{ id() }}</span><button (click)='copy()'>{{ cp?'OK':'📋' }}</button></div>
+          <div class="title"><h2>{{ s?.nombre || 'Conectando...' }}</h2><span class="type" *ngIf="s">{{ s.tipo }}</span></div>
+          <div class="code"><span>🔑 {{ id() }}</span><button (click)="copy()" [class.copied]="cp">{{ cp ? '✅ COPIADO' : '📋 COPIAR' }}</button></div>
         </div>
         <div class="section"><h3>👥 OPERATIVOS</h3>
           <div class="list">
@@ -64,7 +64,32 @@ import { GameService } from '../../services/game.service';
     .info { flex: 1; display: flex; flex-direction: column; gap: 20px; padding: 20px; }
     .head { display: flex; justify-content: space-between; align-items: center; } h2 { margin: 0; color: #00f0ff; }
     .type { font-size: 10px; padding: 2px 8px; background: rgba(255,255,255,0.1); border-radius: 10px; }
-    .code { display: flex; gap: 10px; align-items: center; } .code button { background: none; border: 1px solid #00f0ff; color: #00f0ff; cursor: pointer; }
+    .code { display: flex; gap: 10px; align-items: center; }
+    .code button {
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid #00f0ff;
+      color: #00f0ff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .code button:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+    }
+    .code button.copied {
+      border-color: #00ff00;
+      color: #00ff00;
+      background: rgba(0, 255, 0, 0.1);
+      box-shadow: 0 0 8px rgba(0, 255, 0, 0.4);
+    }
     .section h3 { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
     .list { display: flex; flex-direction: column; gap: 8px; }
     .p-card { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 8px 15px; border-radius: 8px; }
@@ -158,8 +183,49 @@ export class SalaJuegoComponent implements OnInit {
   send() { if (this.txt.trim()) { this.ss.enviarMensajeSala(this.txt.trim()); this.txt = ''; } }
   // Abandona la sala actual avisando al servidor y redirige la pantalla al menú principal del lobby
   out() { this.ss.salirSala(); this.router.navigate(['/lobby']); }
-  // Copia el ID de la sala de espera en el portapapeles del sistema para compartirlo fácilmente
-  copy() { navigator.clipboard.writeText(this.id()).then(() => { this.cp = true; setTimeout(()=>this.cp=false,2000); }); }
+  // Copia el ID de la sala de espera en el portapapeles del sistema para compartirlo fácilmente con fallback para contextos inseguros
+  copy() {
+    const textToCopy = this.id();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(
+        () => {
+          this.cp = true;
+          setTimeout(() => this.cp = false, 2000);
+        },
+        (err) => {
+          console.warn('Failed to copy using navigator.clipboard, trying fallback:', err);
+          this.fallbackCopy(textToCopy);
+        }
+      );
+    } else {
+      this.fallbackCopy(textToCopy);
+    }
+  }
+
+  // Método fallback para copiar al portapapeles en navegadores sin soporte de navigator.clipboard (como contextos HTTP)
+  fallbackCopy(text: string) {
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        this.cp = true;
+        setTimeout(() => this.cp = false, 2000);
+      } else {
+        console.error('Fallback copy command was unsuccessful');
+      }
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+    }
+  }
   // Desplaza automáticamente el contenedor de mensajes hacia abajo cuando hay mucho historial
   scroll() { setTimeout(() => { const e = document.querySelector('.c-m'); if(e) e.scrollTop = e.scrollHeight; }, 50); }
 }
