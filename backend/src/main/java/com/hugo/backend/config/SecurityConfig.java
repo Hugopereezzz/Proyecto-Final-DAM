@@ -56,7 +56,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                     //Estas rutas son publicas, y cualquiera puede entar sin token
-                    .requestMatchers("/api/auth/**", "/api/usuarios/registro", "/api/usuarios/login", "/api/usuarios/logout", "/api/estadisticas/**").permitAll()
+                    .requestMatchers("/api/auth/**", "/api/usuarios/registro", "/api/usuarios/login", "/api/usuarios/logout", "/api/usuarios/ranking", "/api/estadisticas/**").permitAll()
                     
                     //Cualquiera de las demas rutas necesitas estar autenticado (token valido)
                     .anyRequest().authenticated()
