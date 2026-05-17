@@ -1,3 +1,6 @@
+// src/app/components/lobby-principal/available-lobbies/available-lobbies.ts
+// Este archivo muestra una lista de las salas multijugador publicas disponibles.
+// Se actualiza en tiempo real permitiendo a los jugadores unirse haciendo clic en una sala.
 import { Component, inject, output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';

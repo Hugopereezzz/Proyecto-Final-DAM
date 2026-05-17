@@ -1,3 +1,6 @@
+// src/app/components/sala-juego/sala-juego.ts
+// Este archivo representa la sala de espera (lobby) de una partida multijugador.
+// Aqui los jugadores pueden chatear, elegir su faccion y darle a "Listo" antes de empezar la batalla.
 import { Component, inject, input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';

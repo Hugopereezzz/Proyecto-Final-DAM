@@ -1,3 +1,7 @@
+// src/app/services/socket.service.ts
+// Este archivo es el servicio de sockets (comunicacion en tiempo real).
+// Se encarga de conectar con el servidor Node.js, crear y unirse a salas, enviar mensajes de chat
+// y coordinar la sincronizacion de la batalla entre varios jugadores.
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Observable, Subject } from 'rxjs';

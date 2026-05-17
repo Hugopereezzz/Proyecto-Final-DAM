@@ -1,3 +1,6 @@
+// src/app/components/lobby-principal/global-chat/global-chat.ts
+// Este archivo gestiona el chat publico del lobby.
+// Escucha los mensajes que llegan por WebSockets y permite enviar nuevos mensajes a todos.
 import { Component, inject, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';

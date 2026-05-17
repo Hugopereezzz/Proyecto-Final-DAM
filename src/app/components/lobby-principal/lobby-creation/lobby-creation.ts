@@ -1,3 +1,6 @@
+// src/app/components/lobby-principal/lobby-creation/lobby-creation.ts
+// Este archivo es el componente que permite crear o unirse a salas.
+// Aqui el jugador puede escribir el nombre para crear una sala nueva o meter el codigo de una existente.
 import { Component, inject, output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';

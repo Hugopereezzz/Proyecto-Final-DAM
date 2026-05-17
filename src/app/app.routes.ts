@@ -1,4 +1,6 @@
 // src/app/app.routes.ts
+// Este archivo define todas las rutas y URLs de la aplicacion (el "router").
+// Ademas usa los guards para evitar que usuarios no identificados puedan acceder a pantallas ocultas.
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { phaseGuard } from './guards/phase.guard';

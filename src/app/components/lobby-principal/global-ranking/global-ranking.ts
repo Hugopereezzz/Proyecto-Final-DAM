@@ -1,3 +1,6 @@
+// src/app/components/lobby-principal/global-ranking/global-ranking.ts
+// Este archivo representa la tabla de clasificacion (ranking) global.
+// Se encarga de pedir la lista de los mejores jugadores al servidor cada pocos segundos.
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';

@@ -1,4 +1,6 @@
 // src/app/components/lobby-principal/nav-bar/nav-bar.ts
+// Este archivo representa la barra de navegacion superior en el lobby.
+// Se encarga de mostrar el nombre del jugador y un boton para ver sus estadisticas.
 import { Component, inject } from '@angular/core';
 import { UpperCasePipe, CommonModule } from '@angular/common';
 import { GameService } from '../../../services/game.service';

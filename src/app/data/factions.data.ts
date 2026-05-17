@@ -1,9 +1,7 @@
+// src/app/data/factions.data.ts
+// Este archivo contiene la lista de todas las facciones del juego.
+// Define los nombres, historias (lore), colores e iconos (SVG) de las 8 facciones, pero es puramente visual.
 import { FactionTemplate } from '../models/game.models';
-
-/**
- * 8 facciones – solo estéticas (nombres, colores, iconos, lore).
- * Todas las mecánicas son idénticas: 500 HP, 50 misiles por ronda.
- */
 export const FACTIONS: FactionTemplate[] = [
 
   // 1. VANGUARDIA DE HIERRO

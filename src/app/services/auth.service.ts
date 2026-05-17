@@ -1,4 +1,7 @@
 // src/app/services/auth.service.ts
+// Este archivo es el servicio encargado de la autenticacion de los usuarios.
+// Gestiona el login, registro, guardar el token de sesion (JWT) y el sistema de heartbeat (latido)
+// para mantener la sesion viva mientras el usuario juega, o desconectarlo si hay otra sesion.
 import { Injectable, inject, signal, DestroyRef } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';

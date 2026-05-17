@@ -1,3 +1,6 @@
+// src/app/components/faction-select/faction-select.component.ts
+// Este archivo es la pantalla donde los jugadores seleccionan con qué faccion quieren jugar.
+// Permite sincronizar la eleccion en multijugador o elegir rapido en modo de prueba.
 import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GameService } from '../../services/game.service';

@@ -1,4 +1,7 @@
 // src/app/components/lobby-principal/lobby-principal.ts
+// Este archivo representa el Menu Principal del juego (Lobby General).
+// Es la pantalla central donde el usuario puede ver su perfil, el chat global,
+// el ranking y crear o unirse a salas multijugador.
 import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { NavBarComponent } from './nav-bar/nav-bar';

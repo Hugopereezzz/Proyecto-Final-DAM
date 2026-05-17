@@ -1,4 +1,6 @@
 // src/app/services/game.service.ts
+// Este archivo es el servicio central del juego.
+// Se encarga de gestionar toda la logica de la batalla, fases del juego, rondas, y estadisticas.
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
@@ -26,50 +28,50 @@ export class GameService {
     }
   }
 
-  // ── Phase & Auth ──────────────────────────────────────────────────
+  // ── Estado de Fase y Autenticacion ──────────────────────────────────────────────────
   phase        = signal<GamePhase>('login');
   loggedInUser = signal<string | null>(null);
   isMultiplayer = signal<boolean>(false);
   multiplayerPlayers = signal<any[]>([]);
 
-  // ── Selection ────────────────────────────────────────────────────
+  // ── Seleccion de Facciones ────────────────────────────────────────────────────
   selectedFactionIds = signal<string[]>([]);
 
-  // ── Battle state ─────────────────────────────────────────────────
+  // ── Estado de la Batalla ─────────────────────────────────────────────────
   fighters   = signal<Fighter[]>([]);
   roundNumber = signal<number>(1);
   battleLog  = signal<BattleLogEntry[]>([]);
   winner     = signal<string | null>(null);
 
-  // ── Planning state ───────────────────────────────────────────────
-  /** Plan of each player (indexed by fighter index). null = not yet confirmed. */
+  // ── Estado de la Fase de Planificacion ───────────────────────────────────────────────
+  /** Plan de cada jugador (por indice). Si es null, todavia no ha confirmado. */
   playerPlans = signal<(PlayerPlan | null)[]>([]);
   planningTimeLeft = signal<number>(PLANNING_SECONDS);
-  myPlan = signal<PlayerPlan | null>(null);        // local player's draft plan
+  myPlan = signal<PlayerPlan | null>(null);        // Plan provisional del jugador local
 
   private _planningTimer: any = null;
 
   readonly factions = FACTIONS;
 
-  // ── Derived ──────────────────────────────────────────────────────
+  // ── Propiedades Derivadas (Calculadas automaticamente) ──────────────────────────────────────────────────────
   aliveFighters = computed(() => this.fighters().filter(f => f.alive));
 
   /**
-   * Index of the local player among fighters (matches playerName).
-   * Returns -1 in single-player / host mode.
+   * Indice del jugador local dentro de la lista de combatientes.
+   * Devuelve -1 en el modo de un solo jugador si no encuentra el nombre.
    */
   myFighterIdx = computed(() =>
     this.fighters().findIndex(f => f.playerName === this.loggedInUser())
   );
 
-  // ── Auth ─────────────────────────────────────────────────────────
+  // ── Autenticacion (Login) ─────────────────────────────────────────────────────────
   onLoginSuccess(username: string): void {
     this.loggedInUser.set(username);
     this.phase.set('lobby');
     this.router.navigate(['/lobby']);
   }
 
-  // ── Faction toggle (used in selection screen) ────────────────────
+  // ── Seleccion de Facciones (para la pantalla de seleccion) ────────────────────
   toggleFaction(factionId: string) {
     const cur = this.selectedFactionIds();
     if (cur.includes(factionId)) {
@@ -79,7 +81,7 @@ export class GameService {
     }
   }
 
-  // ── Build fighter ────────────────────────────────────────────────
+  // ── Construccion del Combatiente ────────────────────────────────────────────────
   private buildFighter(factionId: string, playerName?: string): Fighter {
     const f = FACTIONS.find(x => x.id === factionId)!;
     return {
@@ -100,7 +102,7 @@ export class GameService {
     };
   }
 
-  // ── Start battle ─────────────────────────────────────────────────
+  // ── Empezar la Batalla ─────────────────────────────────────────────────
   startBattle(ids: string[], _unusedOrder?: number[], names?: string[]): void {
     const fighters = ids.map((id, i) => this.buildFighter(id, names ? names[i] : undefined));
     this.fighters.set(fighters);
@@ -119,7 +121,7 @@ export class GameService {
     this._startPlanningPhase();
   }
 
-  // ── Planning phase ────────────────────────────────────────────────
+  // ── Fase de Planificacion ────────────────────────────────────────────────
   private _startPlanningPhase() {
     this.phase.set('planning');
     this.planningTimeLeft.set(PLANNING_SECONDS);
@@ -152,11 +154,11 @@ export class GameService {
     }, 1000);
   }
 
-  // ── Submit a player's plan ────────────────────────────────────────
+  // ── Enviar Plan del Jugador ────────────────────────────────────────
   /**
-   * Called when a player (local or remote) confirms their plan.
-   * @param actorIdx Fighter index
-   * @param plan     The confirmed plan
+   * Se llama cuando un jugador (local o remoto) confirma su plan de ataque.
+   * @param actorIdx Indice del combatiente
+   * @param plan     El plan confirmado
    */
   submitPlan(actorIdx: number, plan: PlayerPlan) {
     const plans = [...this.playerPlans()];
@@ -192,11 +194,11 @@ export class GameService {
     }
   }
 
-  // ── Resolve round ─────────────────────────────────────────────────
+  // ── Resolver la Ronda ─────────────────────────────────────────────────
   /**
-   * Public method for multiplayer resolution.
-   * @param remotePlans List of { actorIdx, plan }
-   * @param seed Random seed for synchronized shuffling
+   * Metodo publico para resolver la ronda en multijugador.
+   * @param remotePlans Lista de planes recibidos del servidor { actorIdx, plan }
+   * @param seed Semilla aleatoria para que el orden sea exactamente el mismo para todos
    */
   resolveMultiplayerRound(remotePlans: { actorIdx: number, plan: PlayerPlan }[], seed: number) {
     clearInterval(this._planningTimer);
@@ -369,7 +371,7 @@ export class GameService {
     };
   }
 
-  // ── Surrender ────────────────────────────────────────────────────
+  // ── Rendirse (Surrender) ────────────────────────────────────────────────────
   applySurrender(actorIdx: number) {
     if (this.phase() === 'gameover') return;
     
@@ -440,7 +442,7 @@ export class GameService {
 
   surrender() { this.applySurrender(this.myFighterIdx()); }
 
-  // ── Helpers ───────────────────────────────────────────────────────
+  // ── Funciones Auxiliares ───────────────────────────────────────────────────────
   private addLog(entry: BattleLogEntry) {
     this.battleLog.update(log => [entry, ...log].slice(0, 120));
   }

@@ -1,72 +1,83 @@
-// ── Action types (simplified) ──────────────────────────────────────
+// ── Tipos de accion ──────────────────────────────────────
+// Define los posibles eventos que pueden ocurrir en la partida y mostrarse en el registro
 export type ActionType = 'attack' | 'shield' | 'death' | 'status' | 'round_start' | 'resolve';
 
-// ── A single attack assignment inside a player's plan ───────────────
+// ── Ataque individual ───────────────
+// Representa cuántos misiles dispara un jugador contra un objetivo en concreto
 export interface AttackAssignment {
   targetIdx: number;
   missiles: number;
 }
 
-// ── A player's full plan for one round ──────────────────────────────
+// ── Plan completo de un jugador ──────────────────────────────
+// Contiene todas las decisiones de un jugador en una ronda
 export interface PlayerPlan {
   actorIdx: number;
-  attacks: AttackAssignment[];   // list of attacks (can target multiple enemies)
-  shieldMissiles: number;        // missiles spent on shield (2 missiles = 1 shield point)
-  totalSpent: number;            // must be ≤ 50
-  confirmed: boolean;
+  attacks: AttackAssignment[];   // Lista de ataques (a quien y cuantos misiles)
+  shieldMissiles: number;        // Misiles gastados en escudo (2 misiles = 1 punto de escudo)
+  totalSpent: number;            // Total gastado (no puede ser mayor de 50)
+  confirmed: boolean;            // Indica si el jugador ya fijó su plan
 }
 
-// ── One resolved attack event (used in battle log) ──────────────────
+// ── Evento de ataque resuelto ──────────────────
+// Guarda el resultado de un ataque para luego mostrarlo en el log
 export interface RoundResult {
   actorIdx: number;
   targetIdx: number;
-  incomingDamage: number;        // raw damage before shield
-  shieldAbsorbed: number;        // how much shield ate
-  hpDamage: number;              // actual HP lost
-  shieldBroken: boolean;         // true if this hit shattered the shield
+  incomingDamage: number;        // Daño bruto antes de aplicar escudo
+  shieldAbsorbed: number;        // Daño absorbido por el escudo
+  hpDamage: number;              // Vida real perdida
+  shieldBroken: boolean;         // Indica si el escudo se rompió con este ataque
 }
 
-// ── Faction template (cosmetic only – no mechanics) ──────────────────
+// ── Plantilla de Faccion ──────────────────────────────────
+// Define como se ve una faccion (solo es visual, no afecta a las stats)
 export interface FactionTemplate {
   id: string;
   name: string;
-  lore: string;
+  lore: string;                  // Breve historia de la faccion
   color: string;
   gradientFrom: string;
   gradientTo: string;
-  svgIcon: string;
+  svgIcon: string;               // Icono para la UI
 }
 
-// ── Fighter (in-battle state) ────────────────────────────────────────
+// ── Combatiente ────────────────────────────────────────
+// Representa el estado de un jugador dentro de la batalla
 export interface Fighter {
   factionId: string;
-  playerName: string;
-  name: string;
-  hp: number;
-  maxHp: number;
-  missiles: number;              // always reset to 50 at round start
-  shieldHp: number;              // absorbed damage before HP
-  alive: boolean;
-  surrendered?: boolean;
+  playerName: string;            // Nombre del usuario que lo controla
+  name: string;                  // Nombre de la faccion
+  hp: number;                    // Puntos de vida actuales
+  maxHp: number;                 // Vida maxima
+  missiles: number;              // Misiles disponibles (se resetea a 50 cada ronda)
+  shieldHp: number;              // Escudo disponible para absorber daño
+  alive: boolean;                // Indica si sigue vivo
+  surrendered?: boolean;         // Indica si se rindio voluntariamente
   color: string;
   gradientFrom: string;
   gradientTo: string;
   svgIcon: string;
   lore: string;
-  planConfirmed: boolean;        // has this player confirmed their plan?
+  planConfirmed: boolean;        // ¿Ya confirmo sus movimientos para esta ronda?
 }
 
-// ── Battle log entry ─────────────────────────────────────────────────
+// ── Registro de batalla ─────────────────────────────────────────────────
+// Representa una linea en el historial de combate
 export interface BattleLogEntry {
   round: number;
-  actorName: string;
-  targetName: string;
+  actorName: string;             // Quien hizo la accion
+  targetName: string;            // Quien la recibio
   icon: string;
   message: string;
   type: ActionType;
   value?: number;
 }
 
-// planning  → players assign missiles (30s timer)
-// resolving → server/host resolves all actions simultaneously
+// ── Fases del juego ─────────────────────────────────────────────────
+// login     -> pantalla de inicio
+// lobby     -> donde se espera a otros jugadores o se configura la partida
+// planning  -> jugadores deciden a donde disparar (30s)
+// resolving -> calculando resultados
+// gameover  -> partida terminada, pantalla de victoria
 export type GamePhase = 'login' | 'lobby' | 'planning' | 'resolving' | 'gameover';
