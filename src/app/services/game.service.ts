@@ -82,11 +82,11 @@ export class GameService {
   }
 
   // ── Construccion del Combatiente ────────────────────────────────────────────────
-  private buildFighter(factionId: string, playerName?: string): Fighter {
+  private buildFighter(factionId: string, playerName: string): Fighter {
     const f = FACTIONS.find(x => x.id === factionId)!;
     return {
       factionId:    f.id,
-      playerName:   playerName ?? this.loggedInUser() ?? 'Player',
+      playerName:   playerName,
       name:         f.name,
       hp:           BASE_HP,
       maxHp:        BASE_HP,
@@ -104,7 +104,15 @@ export class GameService {
 
   // ── Empezar la Batalla ─────────────────────────────────────────────────
   startBattle(ids: string[], _unusedOrder?: number[], names?: string[]): void {
-    const fighters = ids.map((id, i) => this.buildFighter(id, names ? names[i] : undefined));
+    const fighters = ids.map((id, i) => {
+      let pName = names && names[i] ? names[i] : undefined;
+      if (!pName) {
+        // En modo un jugador (sin nombres provistos por el servidor), solo el primer
+        // combatiente (índice 0) es el usuario local. Los demás serán nombrados como 'Bot'.
+        pName = (i === 0) ? (this.loggedInUser() ?? 'Player') : `Bot ${i}`;
+      }
+      return this.buildFighter(id, pName);
+    });
     this.fighters.set(fighters);
     this.roundNumber.set(1);
     this.battleLog.set([]);
@@ -331,10 +339,16 @@ export class GameService {
           posicion: f.alive ? 1 : 2 // Simplificado: 1 para el ganador, 2 para los demás
         }))
       };
-      this.auth.registrarPartida(matchData).subscribe({
-        next: () => console.log('Partida registrada en MongoDB.'),
-        error: (err) => console.error('Error al registrar partida en Mongo:', err)
-      });
+
+      // Solo el primer jugador (el anfitrión en multijugador, o el local en solitario)
+      // debe reportar las estadísticas para evitar registros duplicados en la base de datos.
+      const isReporter = !this.isMultiplayer() || this.myFighterIdx() === 0;
+      if (isReporter) {
+        this.auth.registrarPartida(matchData).subscribe({
+          next: () => console.log('Partida registrada en MongoDB.'),
+          error: (err) => console.error('Error al registrar partida en Mongo:', err)
+        });
+      }
 
       // Update backend if I am the winner
       const myUsername = this.loggedInUser();
@@ -411,7 +425,12 @@ export class GameService {
           posicion: f.alive ? 1 : 2
         }))
       };
-      this.auth.registrarPartida(matchData).subscribe();
+
+      // Solo reportamos si somos el jugador principal para evitar duplicados
+      const isReporter = !this.isMultiplayer() || this.myFighterIdx() === 0;
+      if (isReporter) {
+        this.auth.registrarPartida(matchData).subscribe();
+      }
 
       // Update backend if I am the winner
       const myUsername = this.loggedInUser();
